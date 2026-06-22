@@ -94,47 +94,53 @@ h2 { margin-bottom: 8px; font-size: clamp(20px, 4.5vw, 28px); line-height: 1.18;
    主持頁：左控制面板 + 右賽場（手機上自動堆疊）
    ============================================================ */
 body[data-view="host"] .topbar { width: min(100%, 1320px); }
+/* 左側控制面板盡量緊湊，把空間讓給右側賽道。 */
 .host-view {
-  display: grid; grid-template-columns: minmax(310px, 380px) minmax(0, 1fr); gap: 18px;
+  display: grid; grid-template-columns: minmax(244px, 282px) minmax(0, 1fr); gap: 14px;
   width: min(100%, 1320px); margin: 0 auto;
-  padding: 0 20px max(24px, env(safe-area-inset-bottom));
+  padding: 0 18px max(20px, env(safe-area-inset-bottom));
 }
-.host-control-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; min-width: 0; }
+.host-control-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; min-width: 0; }
 
-.host-command { display: grid; gap: 14px; padding: 18px; }
-.host-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+.host-command { display: grid; gap: 10px; padding: 13px; }
+.host-command h2 { margin-bottom: 4px; font-size: 19px; }
+.host-command .muted-copy { font-size: 13px; }
+.host-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 7px; }
 .host-actions .command-button { grid-column: span 2; }
+.host-control-panel .command-button, .host-control-panel .secondary-button { min-height: 42px; padding: 8px 12px; }
+.host-control-panel .icon-button { width: 42px; height: 42px; }
 
-.settings-strip { display: grid; gap: 10px; padding: 16px 18px; }
+.settings-strip { display: grid; gap: 7px; padding: 11px 13px; }
 .settings-strip label {
-  display: grid; grid-template-columns: 1fr 64px auto; align-items: center; gap: 8px;
-  color: var(--muted); font-size: 14px; font-weight: 750;
+  display: grid; grid-template-columns: 1fr 54px auto; align-items: center; gap: 8px;
+  color: var(--muted); font-size: 13px; font-weight: 750;
 }
 .settings-strip input {
-  width: 64px; min-height: 40px; border: 1.5px solid #c6dbe1; border-radius: 9px; padding: 4px;
+  width: 54px; min-height: 34px; border: 1.5px solid #c6dbe1; border-radius: 8px; padding: 4px;
   color: var(--ink); text-align: center; font-weight: 800; background: #fff;
 }
 .settings-strip span { font-size: 12px; white-space: nowrap; }
 
-.join-share { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 18px; }
-.join-share h2 { margin-bottom: 6px; font-size: 20px; }
+.join-share { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px; }
+.join-share .section-label { margin-bottom: 2px; }
+.join-share h2 { margin-bottom: 4px; font-size: 16px; }
 .join-share-copy { min-width: 0; }
 .player-join-link {
-  display: block; margin: 10px 0; word-break: break-all;
-  color: var(--aqua-dark); font-size: 12px; font-weight: 700; line-height: 1.5;
+  display: block; margin: 7px 0; word-break: break-all;
+  color: var(--aqua-dark); font-size: 11px; font-weight: 700; line-height: 1.45;
 }
-.share-note { min-height: 18px; margin: 8px 0 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+.share-note { min-height: 16px; margin: 7px 0 0; color: var(--muted); font-size: 11px; font-weight: 700; }
 .share-note.is-warning { color: #9a6700; }
 .qr-code-frame {
-  display: grid; place-items: center; width: 156px; min-height: 156px;
-  border: 1px solid var(--line); border-radius: 14px; padding: 8px; background: #fff;
+  display: grid; place-items: center; width: 118px; min-height: 118px;
+  border: 1px solid var(--line); border-radius: 12px; padding: 6px; background: #fff;
 }
 .qr-code-canvas canvas, .qr-code-canvas img { display: block; max-width: 100%; height: auto; }
 
-.roster-band { padding: 16px 18px; }
-.band-title { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px; font-weight: 800; }
+.roster-band { padding: 11px 13px; }
+.band-title { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; font-weight: 800; }
 .band-title strong { color: var(--ink); }
-.player-roster { display: flex; flex-wrap: wrap; gap: 8px; min-height: 34px; padding-top: 12px; }
+.player-roster { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; padding-top: 9px; }
 .player-pill {
   display: inline-flex; align-items: center; min-height: 28px; padding: 4px 11px; border-radius: 99px;
   color: #fff; font-size: 12px; font-weight: 800; background: var(--team, #8194a0);

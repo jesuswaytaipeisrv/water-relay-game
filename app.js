@@ -186,14 +186,19 @@ function crowdMarkup(teamId) {
   return `${visible}${overflow}`;
 }
 
-// 沙地裝飾：每條賽道隨機數量、位置、大小的石頭與仙人掌（避開左右取水／灌溉區）。
+// 沙地裝飾：石頭與仙人掌各自隨機數量，確保兩者都會出現，位置／大小皆隨機（避開取水／灌溉區）。
 function decorationsMarkup() {
-  const count = 2 + Math.floor(Math.random() * 4); // 2–5 個
-  return Array.from({ length: count }, () => {
-    const emoji = Math.random() < 0.7 ? "🪨" : "🌵";
-    const left = 20 + Math.random() * 52;          // 20%–72%
-    const bottom = 5 + Math.random() * 9;          // 5–14px
-    const size = 11 + Math.random() * 7;           // 11–18px
+  const items = [];
+  const stones = 2 + Math.floor(Math.random() * 3);   // 2–4 顆石頭
+  const cacti = 1 + Math.floor(Math.random() * 2);    // 1–2 株仙人掌
+  for (let n = 0; n < stones; n++) items.push("🪨");
+  for (let n = 0; n < cacti; n++) items.push("🌵");
+  // 洗牌，避免石頭與仙人掌各自成群
+  for (let i = items.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [items[i], items[j]] = [items[j], items[i]]; }
+  return items.map((emoji) => {
+    const left = 18 + Math.random() * 56;             // 18%–74%
+    const bottom = 5 + Math.random() * 9;             // 5–14px
+    const size = (emoji === "🌵" ? 13 : 11) + Math.random() * 6;
     const opacity = (0.78 + Math.random() * 0.22).toFixed(2);
     return `<span class="stone" aria-hidden="true" style="left:${left.toFixed(1)}%;bottom:${bottom.toFixed(0)}px;font-size:${size.toFixed(0)}px;opacity:${opacity}">${emoji}</span>`;
   }).join("");
@@ -261,7 +266,7 @@ function laneSkeleton(teamId) {
 function buildFieldSkeleton() {
   elements.hostScoreboard.innerHTML = `<section class="field" aria-label="三隊同場接力賽場">
     <header class="field-head">
-      <div><p class="section-label">三隊同場接力</p><h3>澆水成長賽場</h3></div>
+      <div><h3>澆水成長賽場</h3></div>
       <span class="field-hint">手指打水時提水人才前進；提到右側倒水讓乾枯小人長大</span>
     </header>
     <div class="lanes">${Object.keys(TEAM_META).map(laneSkeleton).join("")}</div>

@@ -208,7 +208,8 @@ body[data-view="host"] .topbar { width: min(100%, 1320px); }
   background: rgba(255,250,235,0.86); padding: 1px 7px; border-radius: 99px;
 }
 .start-zone { left: 6px; width: 92px; }
-.finish-zone { right: 6px; width: 182px; }
+/* 終點區縮小成一小叢，騰出更長的提水路徑。 */
+.finish-zone { right: 6px; width: 104px; }
 
 /* 共用五官（提水人物、小人、群眾） */
 .person-eye, .runner-eye, .crowd-face i { position: absolute; top: 7px; width: 2.5px; height: 3.5px; border-radius: 50%; background: #264653; }
@@ -426,6 +427,6 @@ body[data-view="player"].is-player-joined .player-view { min-height: 100dvh; pla
   .field-head h3 { font-size: 19px; }
   /* 賽道在窄螢幕仍維持完整橫向結構，縮短起點區寬度避免擁擠 */
   .start-zone { width: 72px; }
-  .finish-zone { width: 150px; }
+  .finish-zone { width: 96px; }
   .crowd { max-width: 70px; }
 }

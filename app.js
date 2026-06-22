@@ -2,7 +2,8 @@ import { firebaseConfig } from "./firebase-config.js";
 
 const FINISH_PERSON_COUNT = 5;
 // 賽道上跑者可見的左右端點（百分比）：左=取水起點，右=灌溉終點。
-const RELAY_PATH = { start: 17, end: 79 };
+// 終點小人聚成一小叢，路徑因此可拉長、更好看。
+const RELAY_PATH = { start: 13, end: 85 };
 // 倒水動作落在一趟行程中段（f≈0.5）的視窗，讓潑水與小人成長同步發生。
 const POUR_WINDOW = { from: 0.46, to: 0.62 };
 const FINISH_DELAY_MS = 1700; // 達標後停在終點潑水的時間，再進入結算
@@ -212,16 +213,18 @@ function relayRunnerMarkup() {
 }
 
 // codex 終點小人造型；位置由 laneSkeleton 隨機指定（水平錯位 + 垂直深度）。
+// 站在前面（bottom 較小）的疊在上層，讓重疊看起來像一群人前後站。
 function tinyPersonMarkup(left, bottom) {
-  return `<span class="tiny-person" style="--person-scale:0.24;left:${left}%;bottom:${bottom}px"><span class="person-bow"></span><span class="person-hair"></span><span class="person-head"><span class="person-eye eye-left"></span><span class="person-eye eye-right"></span><span class="person-cheek cheek-left"></span><span class="person-cheek cheek-right"></span><span class="person-smile"></span></span><span class="person-body"><span class="person-heart">♥</span></span><span class="person-arms"></span><span class="person-legs"></span></span>`;
+  const z = Math.round(40 - Number(bottom));
+  return `<span class="tiny-person" style="--person-scale:0.24;left:${left}%;bottom:${bottom}px;z-index:${z}"><span class="person-bow"></span><span class="person-hair"></span><span class="person-head"><span class="person-eye eye-left"></span><span class="person-eye eye-right"></span><span class="person-cheek cheek-left"></span><span class="person-cheek cheek-right"></span><span class="person-smile"></span></span><span class="person-body"><span class="person-heart">♥</span></span><span class="person-arms"></span><span class="person-legs"></span></span>`;
 }
 
-// 五位小人的隨機站位：以等距為基準加上水平抖動，並給每人不同的深度（bottom）。
+// 五位小人聚成一小叢（互相重疊以縮小佔位），各自隨機水平錯位與深度。
 function tinyPeopleMarkup() {
   return Array.from({ length: FINISH_PERSON_COUNT }, (_, i) => {
-    const base = i * 20;                                         // 0,20,40,60,80
-    const left = Math.max(1, Math.min(80, base + (Math.random() * 8 - 4))).toFixed(1);
-    const bottom = (1 + Math.random() * 22).toFixed(0);          // 1–23px 深度
+    const base = i * 14;                                         // 0,14,28,42,56（緊湊、重疊）
+    const left = Math.max(0, Math.min(62, base + (Math.random() * 8 - 4))).toFixed(1);
+    const bottom = (1 + Math.random() * 20).toFixed(0);          // 1–21px 深度
     return tinyPersonMarkup(left, bottom);
   }).join("");
 }

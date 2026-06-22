@@ -171,21 +171,36 @@ function teamMetrics(teamId) {
   return { units, maxGrowth, pours, growthRatio, posPct, outbound, pouring, progress: Math.round(growthRatio * 100) };
 }
 
-const RELAY_FACES = ["🧒", "👦", "👧", "🧒", "👶"]; // 終點五位小人未長大時的臉
-
-// 起點群眾：以 emoji 頭像表示等待接力的隊員，超過顯示上限以 +N 標示。
+// 起點群眾：codex 卡通隊員（蝴蝶結＋頭髮＋笑臉＋衣服），超過顯示上限以 +N 標示。
 function crowdMarkup(teamId) {
   const members = teamPlayers(teamId);
-  const faces = ["🧑", "🧒", "👦", "👧", "🧓", "👩"];
   const cap = 6;
   const visibleCount = Math.max(3, Math.min(cap, members.length || 3));
   const visible = Array.from({ length: visibleCount }, (_, index) => {
     const player = members[index];
     const name = player?.name || "隊員";
-    return `<span class="crowd-face ${player ? "" : "is-support"}" title="${escapeHtml(name)}" aria-label="${escapeHtml(name)}">${faces[index % faces.length]}</span>`;
+    return `<span class="crowd-member ${player ? "" : "is-support"}" style="--crowd-shift:${(index % 3) * 2}px" title="${escapeHtml(name)}" aria-label="${escapeHtml(name)}"><span class="crowd-bow"></span><span class="crowd-hair"></span><span class="crowd-face"><i class="eye-left"></i><i class="eye-right"></i><b></b></span><span class="crowd-shirt"></span></span>`;
   }).join("");
-  const overflow = members.length > cap ? `<span class="crowd-overflow">+${members.length - cap}</span>` : "";
+  const overflow = members.length > cap ? `<strong class="crowd-overflow">+${members.length - cap}</strong>` : "";
   return `${visible}${overflow}`;
+}
+
+// codex 提水跑者造型（雙手各提一桶）。
+function relayRunnerMarkup() {
+  return `<div class="relay-runner">
+    <span class="runner-bow"></span><span class="runner-hair"></span>
+    <span class="runner-head"><span class="runner-eye eye-left"></span><span class="runner-eye eye-right"></span><span class="runner-cheek cheek-left"></span><span class="runner-cheek cheek-right"></span><span class="runner-smile"></span></span>
+    <span class="runner-body"><span class="runner-badge">♥</span></span><span class="runner-legs"></span>
+    <span class="runner-arm runner-arm-left"></span><span class="runner-arm runner-arm-right"></span>
+    <span class="runner-bucket runner-bucket-left"><i></i></span><span class="runner-bucket runner-bucket-right"><i></i></span>
+    <span class="bucket-spray bucket-spray-left"><i></i><i></i><i></i></span><span class="bucket-spray bucket-spray-right"><i></i><i></i><i></i></span>
+    <span class="irrigation-splash"></span>
+  </div>`;
+}
+
+// codex 終點小人造型。
+function tinyPersonMarkup() {
+  return `<span class="tiny-person" style="--person-scale:0.24"><span class="person-bow"></span><span class="person-hair"></span><span class="person-head"><span class="person-eye eye-left"></span><span class="person-eye eye-right"></span><span class="person-cheek cheek-left"></span><span class="person-cheek cheek-right"></span><span class="person-smile"></span></span><span class="person-body"><span class="person-heart">♥</span></span><span class="person-arms"></span><span class="person-legs"></span></span>`;
 }
 
 // 賽場採「建一次、之後只更新樣式」的策略：跑者與小人是常駐 DOM，
@@ -196,9 +211,7 @@ const laneRefs = {};
 // 賽道骨架：沙地賽道上散落石頭，左取水起點群眾、中間提水跑者、右終點五位小人。
 function laneSkeleton(teamId) {
   const meta = TEAM_META[teamId];
-  const growers = Array.from({ length: FINISH_PERSON_COUNT }, (_, i) =>
-    `<span class="grower" data-i="${i}"><span class="grower-spark" aria-hidden="true">✨</span><span class="grower-face">${RELAY_FACES[i]}</span></span>`
-  ).join("");
+  const people = Array.from({ length: FINISH_PERSON_COUNT }, () => tinyPersonMarkup()).join("");
   return `<section class="lane" data-team="${teamId}" style="--team:${meta.color};--team-dark:${meta.dark}" aria-label="${meta.name}由左側取水往右側灌溉">
     <div class="lane-head">
       <span class="lane-name">${meta.name}</span>
@@ -209,17 +222,10 @@ function laneSkeleton(teamId) {
       <div class="lane-fill"></div>
       <span class="stone stone-a" aria-hidden="true">🪨</span><span class="stone stone-b" aria-hidden="true">🪨</span><span class="stone stone-c" aria-hidden="true">🌵</span>
       <div class="zone start-zone"><div class="crowd">${crowdMarkup(teamId)}</div><span class="zone-tag">💧 取水</span></div>
-      <div class="runner" aria-hidden="true">
-        <div class="runner-fig">
-          <div class="runner-sway">
-            <span class="bk bk-left">🪣</span><span class="person">🚶</span><span class="bk bk-right">🪣</span>
-          </div>
-        </div>
-        <span class="runner-splash" aria-hidden="true">💦</span>
-      </div>
+      <div class="runner" aria-hidden="true">${relayRunnerMarkup()}</div>
       <div class="zone finish-zone">
-        <div class="rain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-        <div class="growers">${growers}</div>
+        <div class="watering-rain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="tiny-people">${people}</div>
         <span class="zone-tag">🌱 灌溉</span>
       </div>
     </div>
@@ -239,7 +245,7 @@ function buildFieldSkeleton() {
     laneRefs[teamId] = {
       track: lane.querySelector(".lane-track"), fill: lane.querySelector(".lane-fill"),
       pct: lane.querySelector(".lane-pct"), meta: lane.querySelector(".lane-meta"),
-      runner: lane.querySelector(".runner"), growers: [...lane.querySelectorAll(".grower")]
+      runner: lane.querySelector(".runner"), people: [...lane.querySelectorAll(".tiny-person")]
     };
   });
 }
@@ -258,20 +264,17 @@ function renderField() {
     ref.fill.style.width = `${m.progress}%`;
     ref.pct.textContent = `${m.progress}%`;
     ref.meta.textContent = `${teamPlayers(teamId).length} 位 · 澆水 ${m.pours} 次`;
-    // 跑者：位置跟著 waterUnits，CSS 過渡讓它慢慢滑動；面向移動方向。
+    // 跑者：位置跟著 waterUnits，CSS 過渡讓它慢慢滑動；倒水時切換潑水姿態。
     ref.runner.style.left = `${m.posPct}%`;
     ref.runner.classList.toggle("show", active && hasMembers);
-    ref.runner.classList.toggle("face-right", m.outbound);
     ref.runner.classList.toggle("is-pour", pouring);
     ref.track.classList.toggle("is-watering", pouring);
-    // 終點小人：依澆水比例由小變大（CSS 過渡平滑），倒水當下加 is-pour 彈跳放大。
-    const scale = (0.4 + m.growthRatio * 0.6).toFixed(3);
+    // 終點小人：依澆水比例由小變大（CSS 過渡平滑）；倒水時整片小人彈跳（happy-sprinkle）。
+    const personScale = (0.24 + m.growthRatio * 0.76).toFixed(3);
     const grown = m.growthRatio >= 1;
-    ref.growers.forEach((g, i) => {
-      g.style.setProperty("--g", scale);
-      g.classList.toggle("is-grown", grown);
-      g.classList.toggle("is-pour", pouring);
-      g.querySelector(".grower-face").textContent = grown ? "🧑" : RELAY_FACES[i];
+    ref.people.forEach((p) => {
+      p.style.setProperty("--person-scale", personScale);
+      p.classList.toggle("is-grown", grown);
     });
   });
 }

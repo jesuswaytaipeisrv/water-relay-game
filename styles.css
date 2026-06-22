@@ -212,60 +212,93 @@ body[data-view="host"] .topbar { width: min(100%, 1320px); }
 .start-zone { left: 6px; width: 92px; }
 .finish-zone { right: 6px; width: 168px; }
 
-.crowd { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0; max-width: 88px; }
-.crowd-face { font-size: 18px; line-height: 1; margin: -1px -2px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.12)); }
-.crowd-face.is-support { opacity: 0.4; }
-.crowd-overflow {
-  font-size: 11px; font-weight: 900; color: var(--team-dark);
-  background: #fff; border-radius: 99px; padding: 1px 6px; margin-left: 2px;
-}
+/* 共用五官（提水人物、小人、群眾） */
+.person-eye, .runner-eye, .crowd-face i { position: absolute; top: 7px; width: 2.5px; height: 3.5px; border-radius: 50%; background: #264653; }
+.eye-left { left: 4px; } .eye-right { right: 4px; }
+.person-cheek, .runner-cheek { position: absolute; top: 12px; width: 4px; height: 2px; border-radius: 50%; background: #ff9aa2; opacity: 0.8; }
+.cheek-left { left: 1px; } .cheek-right { right: 1px; }
+.runner-bow, .person-bow, .crowd-bow { position: absolute; z-index: 5; width: 9px; height: 9px; border-radius: 55% 45% 55% 45%; background: #f9c74f; box-shadow: -5px 2px 0 #f9c74f, 0 0 0 2px rgba(255,255,255,0.56); transform: rotate(28deg); }
+.runner-smile, .person-smile { position: absolute; left: 50%; width: 7px; height: 4px; border-bottom: 1.5px solid #a85055; border-radius: 0 0 9px 9px; transform: translateX(-50%); }
 
-/* 提水跑者：雙手各提一桶的卡通人物，搖搖晃晃前進；位置由 JS 設定、CSS 過渡讓它慢慢滑動。 */
+/* 起點群眾：codex 卡通隊員（蝴蝶結＋頭髮＋笑臉＋衣服）。 */
+.crowd { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 3px 1px; max-width: 90px; }
+.crowd-member { position: relative; width: 18px; height: 26px; transform: translateY(var(--crowd-shift)); filter: drop-shadow(0 1px 1px rgba(16,42,67,0.14)); }
+.crowd-member.is-support { opacity: 0.7; }
+.crowd-bow { top: 2px; left: 12px; transform: scale(0.42) rotate(28deg); }
+.crowd-hair { position: absolute; z-index: 3; top: 1px; left: 5px; width: 9px; height: 6px; border-radius: 8px 8px 2px 2px; background: #6c4b3b; }
+.crowd-face { position: absolute; z-index: 2; top: 4px; left: 5px; width: 9px; height: 9px; border-radius: 50%; background: #ffd3b5; }
+.crowd-face i { top: 4px; width: 1px; height: 2px; }
+.crowd-face .eye-left { left: 2px; } .crowd-face .eye-right { right: 2px; }
+.crowd-face b { position: absolute; top: 7px; left: 3px; width: 3px; height: 1px; border-bottom: 1px solid #a85055; border-radius: 0 0 4px 4px; }
+.crowd-shirt { position: absolute; top: 12px; left: 2px; width: 15px; height: 13px; border-radius: 6px 6px 2px 2px; background: #fff; }
+.crowd-member:nth-child(3n) .crowd-shirt { background: #f5b700; }
+.crowd-member:nth-child(3n + 2) .crowd-shirt { background: #dbeafe; }
+.crowd-overflow { font-size: 11px; font-weight: 900; color: var(--team-dark); background: #fff; border-radius: 99px; padding: 1px 6px; align-self: center; }
+
+/* 提水跑者：codex 雙手各提一桶的卡通人物；位置由 JS 設定，CSS 過渡讓它慢慢滑動。 */
 .runner {
-  position: absolute; left: 17%; bottom: 24px; z-index: 4;
-  transform: translateX(-50%); transform-origin: bottom center;
+  position: absolute; left: 17%; bottom: 8px; z-index: 4;
+  width: 46px; height: 68px; transform: translateX(-50%);
   opacity: 0; pointer-events: none;
   transition: left 520ms ease, opacity 200ms ease;
-  filter: drop-shadow(0 3px 2px rgba(120,80,30,0.32));
+  filter: drop-shadow(0 4px 2px rgba(120,80,30,0.3));
 }
 .runner.show { opacity: 1; }
-.runner-fig { display: inline-block; transition: transform 120ms ease; }
-.runner.face-right .runner-fig { transform: scaleX(-1); } /* 🚶預設面左，往右走時鏡像 */
-.runner-sway { display: inline-flex; align-items: flex-end; gap: 0; transform-origin: bottom center; animation: sway 1100ms ease-in-out infinite alternate; }
-.runner .person { font-size: 27px; line-height: 1; display: inline-block; animation: carry-bob 520ms ease-in-out infinite alternate; }
-.runner .bk { font-size: 17px; line-height: 1; align-self: center; }
-.runner .bk-left { margin-right: -4px; }
-.runner .bk-right { margin-left: -4px; }
-/* 倒水：人物前傾甩動雙桶，潑出水花朝終點小人。 */
-.runner.is-pour .runner-sway { animation: pour-tip 460ms ease-in-out infinite alternate; }
-.runner-splash { position: absolute; left: 64%; bottom: 30px; font-size: 22px; opacity: 0; }
-.runner.is-pour .runner-splash { opacity: 1; animation: splash-fly 560ms ease-out infinite; }
+.relay-runner { position: relative; display: block; width: 46px; height: 68px; }
+.runner-head { position: absolute; z-index: 2; top: 5px; left: 15px; width: 16px; height: 16px; border-radius: 50%; background: #ffd3b5; }
+.runner-hair { position: absolute; z-index: 3; top: 1px; left: 15px; width: 16px; height: 10px; border-radius: 12px 12px 3px 3px; background: #6c4b3b; }
+.runner-bow { top: 3px; left: 32px; }
+.runner-smile { top: 14px; }
+.runner-body { position: absolute; z-index: 1; top: 19px; left: 10px; width: 26px; height: 27px; border-radius: 10px 10px 7px 7px; background: var(--team); box-shadow: inset 0 -4px rgba(0,0,0,0.12); }
+.runner-badge { display: block; padding-top: 7px; color: #fff; font-size: 9px; font-style: normal; text-align: center; }
+.runner-legs { position: absolute; top: 44px; left: 13px; width: 20px; height: 20px; border-right: 5px solid #495867; border-left: 5px solid #495867; border-radius: 0 0 7px 7px; }
+.runner-arm { position: absolute; z-index: -1; top: 24px; width: 19px; height: 8px; border-radius: 8px; background: #ffd3b5; transition: transform 200ms ease; }
+.runner-arm-left { left: -2px; transform: rotate(-18deg); }
+.runner-arm-right { right: -2px; transform: rotate(18deg); }
+.runner-bucket { position: absolute; bottom: 6px; width: 17px; height: 20px; border: 3px solid #fff; border-radius: 3px 3px 8px 8px; background: linear-gradient(to top, #50d5f5 68%, transparent 68%); box-shadow: 0 3px 0 rgba(16,42,67,0.2); transition: transform 200ms ease; }
+.runner-bucket-left { left: -10px; } .runner-bucket-right { right: -10px; }
+.runner-bucket::before { content: ""; position: absolute; top: -8px; left: 2px; width: 7px; height: 8px; border: 2px solid #fff; border-bottom: 0; border-radius: 8px 8px 0 0; }
+.runner-bucket i { position: absolute; top: 4px; left: 4px; width: 5px; height: 3px; border-radius: 50%; background: rgba(255,255,255,0.75); }
+/* 走路時沉甸甸地搖晃 */
+.runner:not(.is-pour) .relay-runner .runner-body, .runner:not(.is-pour) .relay-runner .runner-legs { animation: heavy-step 520ms ease-in-out infinite alternate; }
+.irrigation-splash, .bucket-spray { display: none; }
+.irrigation-splash { position: absolute; top: -7px; left: 13px; width: 22px; height: 18px; border: 4px dotted #4cc9f0; border-radius: 50%; }
+/* 倒水：人物前傾、雙臂與水桶向外傾倒，桶口射出弧形水流潑向小人。 */
+.runner.is-pour .relay-runner { transform: rotate(-9deg); }
+.runner.is-pour .runner-arm-left { transform: rotate(-42deg); }
+.runner.is-pour .runner-arm-right { transform: rotate(42deg); }
+.runner.is-pour .runner-bucket { transform: rotate(58deg); transform-origin: top center; }
+.runner.is-pour .runner-bucket-left { transform: rotate(-58deg); }
+.runner.is-pour .irrigation-splash { display: block; animation: splash 500ms ease-in-out infinite alternate; }
+.runner.is-pour .bucket-spray { display: block; position: absolute; z-index: -2; top: 26px; width: 60px; height: 44px; border-top: 5px solid #4cc9f0; border-radius: 80% 70% 0 0; filter: drop-shadow(0 0 3px rgba(76,201,240,0.8)); animation: fling-water 420ms ease-out infinite alternate; }
+.bucket-spray-left { right: 26px; transform: rotate(-38deg); }
+.bucket-spray-right { left: 26px; transform: rotate(38deg) scaleX(-1); }
+.bucket-spray i { position: absolute; width: 7px; height: 10px; border-radius: 60% 40% 60% 40%; background: #4cc9f0; }
+.bucket-spray i:nth-child(1) { top: -4px; right: 4px; }
+.bucket-spray i:nth-child(2) { top: 8px; right: 17px; transform: scale(0.72); }
+.bucket-spray i:nth-child(3) { top: 18px; right: 29px; transform: scale(0.5); }
 
-/* 終點落雨澆水：誇張一點，較多較大的水滴落在小人身上。 */
-.rain { position: absolute; top: 4px; left: 0; right: 0; display: flex; justify-content: space-around; padding: 0 14px; pointer-events: none; opacity: 0; z-index: 3; }
-.rain i {
-  width: 6px; height: 20px; border-radius: 60% 60% 75% 75%;
-  background: linear-gradient(#e6fbff, #2fb6e0); box-shadow: 0 0 6px rgba(76,201,240,0.6);
-}
-.lane-track.is-watering .rain { opacity: 1; }
-.lane-track.is-watering .rain i { animation: rain-fall 460ms ease-in infinite; }
-.lane-track.is-watering .rain i:nth-child(2) { animation-delay: 120ms; }
-.lane-track.is-watering .rain i:nth-child(3) { animation-delay: 240ms; }
-.lane-track.is-watering .rain i:nth-child(4) { animation-delay: 70ms; }
-.lane-track.is-watering .rain i:nth-child(5) { animation-delay: 320ms; }
+/* 終點落雨澆水：水珠落在小人身上 */
+.watering-rain { display: none; position: absolute; z-index: 4; top: 6px; right: 8%; left: 8%; justify-content: space-around; pointer-events: none; }
+.watering-rain i { width: 5px; height: 30px; border-radius: 60% 40% 60% 40%; background: linear-gradient(#dffaff, #32bfe5); box-shadow: 0 0 7px rgba(76,201,240,0.75); transform: rotate(16deg); animation: water-fall 480ms ease-in infinite alternate; }
+.watering-rain i:nth-child(2n) { height: 22px; animation-delay: 140ms; transform: rotate(-12deg); }
+.lane-track.is-watering .watering-rain { display: flex; }
+.lane-track.is-watering .tiny-person { animation: happy-sprinkle 600ms ease-in-out infinite alternate; }
 
-/* 終點五位小人：依澆水比例由小慢慢變大（transform 過渡），倒水當下臉部彈跳放大（有感）。 */
-.growers { display: flex; align-items: flex-end; justify-content: center; gap: 0; height: 100%; padding-bottom: 6px; }
-.grower {
-  position: relative; display: grid; place-items: center;
-  transform: scale(var(--g, 0.4)); transform-origin: center bottom;
-  transition: transform 560ms cubic-bezier(.18,.9,.25,1.2);
-}
-.grower-face { font-size: 26px; line-height: 1; display: inline-block; }
-.grower-spark { position: absolute; top: -12px; font-size: 13px; opacity: 0; }
-.grower.is-grown { filter: drop-shadow(0 0 7px rgba(255,206,58,0.95)); }
-.grower.is-grown .grower-spark { opacity: 1; animation: twinkle 900ms ease-in-out infinite alternate; }
-.grower.is-pour .grower-face { animation: water-pop 440ms ease-in-out infinite alternate; }
+/* 終點五位小人：codex 卡通造型，依澆水比例由小慢慢變大；長大後換暖色並發光。 */
+.tiny-people { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 100%; padding-bottom: 2px; }
+.tiny-person { position: relative; width: 32px; height: 68px; transform: scale(var(--person-scale, 0.24)); transform-origin: center bottom; transition: transform 420ms cubic-bezier(.2,.8,.2,1), filter 340ms ease; filter: drop-shadow(0 3px 2px rgba(16,42,67,0.16)); }
+.person-head { position: absolute; z-index: 2; top: 8px; left: 7px; width: 18px; height: 18px; border-radius: 50%; background: #ffd3b5; }
+.person-hair { position: absolute; z-index: 3; top: 4px; left: 8px; width: 17px; height: 10px; border-radius: 12px 12px 4px 4px; background: #7c4b3b; }
+.person-bow { top: 6px; left: 22px; transform: scale(0.58) rotate(28deg); }
+.person-smile { top: 14px; width: 5px; height: 3px; border-width: 1px; }
+.person-body { position: absolute; z-index: 1; top: 23px; left: 5px; width: 23px; height: 27px; border-radius: 11px 11px 7px 7px; background: var(--team); box-shadow: inset 0 -4px rgba(0,0,0,0.12); }
+.person-heart { position: absolute; top: 7px; left: 8px; color: #fff; font-size: 9px; font-style: normal; }
+.person-arms { position: absolute; top: 27px; left: 1px; width: 30px; height: 12px; border-right: 4px solid #ffd3b5; border-left: 4px solid #ffd3b5; border-radius: 0 0 12px 12px; }
+.person-legs { position: absolute; top: 47px; left: 8px; width: 16px; height: 18px; border-right: 5px solid #495867; border-left: 5px solid #495867; border-radius: 0 0 6px 6px; }
+.tiny-person.is-grown .person-hair { background: #4c3a2c; }
+.tiny-person.is-grown .person-body { background: #f4a261; }
+.tiny-person.is-grown { filter: drop-shadow(0 0 8px rgba(245,183,0,0.72)); }
 
 /* ============================================================
    玩家頁
@@ -353,17 +386,19 @@ body[data-view="player"].is-player-joined .player-view { min-height: 100dvh; pla
    動畫
    ============================================================ */
 @keyframes ripple { 0% { transform: translate(-50%,-50%) scale(0.7); opacity: 0.7; } 100% { transform: translate(-50%,-50%) scale(1.2); opacity: 0; } }
-/* 提水搖晃：整組左右搖 + 人物上下顛 */
-@keyframes sway { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
-@keyframes carry-bob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
-/* 倒水：前傾甩桶 */
-@keyframes pour-tip { 0% { transform: rotate(-6deg); } 100% { transform: rotate(26deg) translateY(2px); } }
-/* 潑水：水花往終點小人飛去並淡出 */
-@keyframes splash-fly { 0% { transform: translate(0,0) scale(0.6); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(20px,-14px) scale(1.25); opacity: 0; } }
-@keyframes rain-fall { 0% { transform: translateY(-8px); opacity: 0.2; } 55% { opacity: 1; } 100% { transform: translateY(22px); opacity: 0; } }
-@keyframes twinkle { from { transform: scale(0.8); opacity: 0.6; } to { transform: scale(1.15); opacity: 1; } }
-/* 受水彈跳：小人臉部蓄力後向上彈放大，灌溉「有感」 */
-@keyframes water-pop { 0% { transform: translateY(2px) scale(0.96); filter: brightness(0.96); } 100% { transform: translateY(-5px) scale(1.2); filter: brightness(1.2); } }
+/* 提水沉重步伐（搖搖晃晃） */
+@keyframes heavy-step { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(3px) rotate(2deg); } }
+/* 倒水時桶口潑水弧線 */
+@keyframes splash { from { transform: scale(0.7); opacity: 0.5; } to { transform: scale(1.25); opacity: 1; } }
+@keyframes fling-water { from { opacity: 0.55; } to { opacity: 1; filter: brightness(1.18); } }
+/* 終點落雨 */
+@keyframes water-fall { from { transform: translateY(-5px) rotate(12deg); opacity: 0.55; } to { transform: translateY(10px) rotate(-9deg); opacity: 1; } }
+/* 受水彈跳：小人蓄力後向上彈放大，灌溉「有感」 */
+@keyframes happy-sprinkle {
+  0% { transform: scale(var(--person-scale)) scale(0.72) translateY(7px); filter: brightness(0.92); }
+  58% { transform: scale(var(--person-scale)) scale(1.22) translateY(-7px); filter: brightness(1.26) drop-shadow(0 0 8px rgba(76,201,240,0.9)); }
+  100% { transform: scale(var(--person-scale)) translateY(-2px); filter: brightness(1.08); }
+}
 @keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -386,9 +421,7 @@ body[data-view="player"].is-player-joined .player-view { min-height: 100dvh; pla
   .field { padding: 16px 14px; }
   .field-head h3 { font-size: 19px; }
   /* 賽道在窄螢幕仍維持完整橫向結構，縮短起點區寬度避免擁擠 */
-  .start-zone { width: 76px; }
+  .start-zone { width: 72px; }
   .finish-zone { width: 150px; }
-  .runner .person { font-size: 24px; }
-  .runner .bk { font-size: 15px; }
-  .grower-face { font-size: 22px; }
+  .crowd { max-width: 70px; }
 }

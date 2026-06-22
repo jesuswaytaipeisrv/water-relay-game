@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#15a6b6">
+    <title>提水長大賽</title>
+    <link rel="stylesheet" href="styles.css?v=20260622-1">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <span class="brand-kicker">WATER GROWTH RELAY</span>
+          <h1>提水長大賽 <span class="brand-emoji" aria-hidden="true">💧🌱</span></h1>
+        </div>
+        <div class="connection-stack">
+          <span id="connection-badge" class="status-badge is-demo">示範模式</span>
+          <span id="room-label" class="room-label">房間 WATER2026</span>
+        </div>
+      </header>
+
+      <section id="host-view" class="host-view" hidden>
+        <aside class="host-control-panel" aria-label="主持控制面板">
+          <section class="host-command panel-card" aria-label="主持控制">
+            <div>
+              <p class="section-label">主持台</p>
+              <h2 id="host-heading">等待三隊就位</h2>
+              <p id="host-copy" class="muted-copy">所有隊員從起點輪流接力，把水提到終點讓小人長大。</p>
+            </div>
+            <div class="host-actions">
+              <button id="auto-assign-button" class="secondary-button" type="button">自動分隊</button>
+              <button id="start-button" class="command-button" type="button">開始倒數</button>
+              <button id="reset-button" class="icon-button" type="button" aria-label="重設本回合" title="重設本回合">↻</button>
+            </div>
+          </section>
+
+          <section class="settings-strip panel-card" aria-label="遊戲設定">
+            <label>提滿一桶
+              <input id="bucket-capacity" type="number" min="5" max="100" value="24" inputmode="numeric">
+              <span>次打水</span>
+            </label>
+            <label>每人長大
+              <input id="growth-stages" type="number" min="1" max="8" value="4" inputmode="numeric">
+              <span>次淋水</span>
+            </label>
+            <label>倒數
+              <input id="countdown-seconds" type="number" min="1" max="20" value="5" inputmode="numeric">
+              <span>秒</span>
+            </label>
+          </section>
+
+          <section class="join-share panel-card" aria-label="玩家加入 QR Code">
+            <div class="join-share-copy">
+              <p class="section-label">玩家加入</p>
+              <h2>掃描加入</h2>
+              <code id="player-join-link" class="player-join-link"></code>
+              <button id="copy-player-link-button" class="secondary-button" type="button">複製連線網址</button>
+              <p id="join-share-note" class="share-note" aria-live="polite"></p>
+            </div>
+            <div class="qr-code-frame"><div id="join-qr-code" class="qr-code-canvas" role="img" aria-label="玩家加入 QR Code"></div></div>
+          </section>
+
+          <section class="roster-band panel-card" aria-label="已加入玩家">
+            <div class="band-title"><span>已加入玩家</span><strong id="player-count">0 人</strong></div>
+            <div id="player-roster" class="player-roster"></div>
+          </section>
+        </aside>
+
+        <section id="host-scoreboard" class="scoreboard" aria-label="三隊提水進度"></section>
+      </section>
+
+      <section id="player-view" class="player-view" hidden>
+        <section id="join-panel" class="join-panel panel-card" aria-labelledby="join-heading">
+          <span class="join-emoji" aria-hidden="true">💧</span>
+          <p class="section-label">玩家加入</p>
+          <h2 id="join-heading">寫下名字，等待主持人分隊</h2>
+          <form id="join-form">
+            <label class="name-field">你的名字
+              <input id="player-name" name="playerName" type="text" maxlength="16" required autocomplete="name" placeholder="輸入名字">
+            </label>
+            <p id="join-error" class="form-error" aria-live="polite"></p>
+            <button id="join-button" class="command-button join-button" type="submit">加入等待名單</button>
+          </form>
+        </section>
+
+        <section id="tap-panel" class="tap-panel" hidden aria-labelledby="tap-heading">
+          <div class="player-status-row">
+            <div>
+              <p id="your-team-label" class="section-label team-tag">晨露隊</p>
+              <h2 id="tap-heading">準備提水</h2>
+            </div>
+            <strong id="tap-counter" class="tap-counter">0 次</strong>
+          </div>
+          <div class="team-progress" aria-hidden="true"><span id="team-progress-fill"></span></div>
+          <div id="tap-message" class="tap-message" aria-live="polite">等待主持人開始</div>
+          <button id="tap-button" class="tap-button" type="button" disabled aria-label="打水">
+            <span class="tap-button-ripple"></span>
+            <span class="tap-button-drop" aria-hidden="true">💧</span>
+            <span class="tap-button-icon">打水</span>
+            <span class="tap-button-copy">快速連點</span>
+          </button>
+          <button id="change-team-button" class="text-button" type="button">離開等待名單</button>
+        </section>
+      </section>
+
+      <section id="winner-overlay" class="winner-overlay" hidden aria-live="assertive">
+        <div class="winner-card">
+          <span class="winner-emoji" aria-hidden="true">🏆</span>
+          <p class="section-label">本回合結果</p>
+          <h2 id="winner-title">晨露隊獲勝</h2>
+          <p id="winner-copy">最先讓五位小人全部長大。</p>
+          <button id="winner-next-button" class="command-button winner-next-button" type="button">下一輪</button>
+        </div>
+      </section>
+    </main>
+    <script defer src="vendor/qrcode.min.js?v=1.0.0"></script>
+    <script type="module" src="app.js?v=20260622-1"></script>
+  </body>
+</html>

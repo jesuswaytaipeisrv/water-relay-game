@@ -1,0 +1,367 @@
+/* ============================================================
+   提水長大賽 — 視覺樣式（手機優先）
+   設計：明亮、活潑的「澆水成長」主題；角色使用 emoji，
+   賽道在手機上垂直堆疊、不需橫向捲動。
+   ============================================================ */
+
+:root {
+  --ink: #0f2d3a;
+  --muted: #5d7a87;
+  --line: #e2eef2;
+  --aqua: #15a6b6;
+  --aqua-dark: #0b7a87;
+  --sun: #ffce3a;
+  --card: #ffffff;
+  --radius: 18px;
+  --shadow: 0 14px 30px rgba(15, 45, 58, 0.10);
+  --shadow-soft: 0 6px 16px rgba(15, 45, 58, 0.08);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: var(--ink);
+  font-family: ui-rounded, "SF Pro Rounded", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+  background: linear-gradient(180deg, #cfeffb 0%, #e6f8ff 40%, #eafaf0 100%) fixed;
+}
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+button:disabled { cursor: not-allowed; }
+
+.app-shell { min-height: 100dvh; }
+
+/* ---------- 頂列 ---------- */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  width: min(100%, 1320px); margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 20px 14px;
+}
+.brand-kicker, .section-label {
+  display: block; margin: 0 0 4px;
+  color: var(--aqua-dark); font-size: 11px; font-weight: 850; letter-spacing: 0.12em;
+}
+h1, h2, p { margin-top: 0; }
+h1 { margin-bottom: 0; font-size: clamp(23px, 5vw, 34px); line-height: 1.08; }
+h1 .brand-emoji { font-size: 0.7em; }
+h2 { margin-bottom: 8px; font-size: clamp(20px, 4.5vw, 28px); line-height: 1.18; }
+.connection-stack { display: grid; justify-items: end; gap: 6px; }
+.status-badge {
+  display: inline-flex; align-items: center; min-height: 26px; padding: 4px 11px;
+  border-radius: 99px; color: #fff; font-size: 12px; font-weight: 800;
+}
+.status-badge.is-demo { background: #8194a0; }
+.status-badge.is-live { background: #18a559; }
+.room-label { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
+
+/* ---------- 卡片 / 按鈕 ---------- */
+.panel-card {
+  min-width: 0;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); box-shadow: var(--shadow-soft);
+}
+.muted-copy { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+.command-button, .secondary-button {
+  min-height: 48px; border-radius: 12px; padding: 11px 18px; font-weight: 850; letter-spacing: 0.02em;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 150ms ease;
+}
+.command-button {
+  border: 0; color: #fff;
+  background: linear-gradient(180deg, var(--aqua), var(--aqua-dark));
+  box-shadow: 0 5px 0 var(--aqua-dark), var(--shadow-soft);
+}
+.command-button:hover:not(:disabled) { filter: brightness(1.05); }
+.command-button:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--aqua-dark); }
+.command-button:disabled { opacity: 0.5; box-shadow: 0 5px 0 #9fb3ba; }
+.secondary-button { border: 1.5px solid #b6d6dd; color: var(--aqua-dark); background: #fff; }
+.secondary-button:hover:not(:disabled) { background: #f1fafb; }
+.secondary-button:disabled { opacity: 0.5; }
+.icon-button {
+  width: 48px; height: 48px; border: 1.5px solid #c2d8de; border-radius: 12px;
+  color: var(--ink); background: #fff; font-size: 22px; font-weight: 700;
+}
+.icon-button:hover { background: #f1fafb; }
+.text-button {
+  justify-self: center; border: 0; padding: 10px; background: transparent;
+  color: var(--aqua-dark); font-size: 14px; font-weight: 800; text-decoration: underline;
+}
+
+/* ============================================================
+   主持頁：左控制面板 + 右賽場（手機上自動堆疊）
+   ============================================================ */
+body[data-view="host"] .topbar { width: min(100%, 1320px); }
+.host-view {
+  display: grid; grid-template-columns: minmax(310px, 380px) minmax(0, 1fr); gap: 18px;
+  width: min(100%, 1320px); margin: 0 auto;
+  padding: 0 20px max(24px, env(safe-area-inset-bottom));
+}
+.host-control-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; min-width: 0; }
+
+.host-command { display: grid; gap: 14px; padding: 18px; }
+.host-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+.host-actions .command-button { grid-column: span 2; }
+
+.settings-strip { display: grid; gap: 10px; padding: 16px 18px; }
+.settings-strip label {
+  display: grid; grid-template-columns: 1fr 64px auto; align-items: center; gap: 8px;
+  color: var(--muted); font-size: 14px; font-weight: 750;
+}
+.settings-strip input {
+  width: 64px; min-height: 40px; border: 1.5px solid #c6dbe1; border-radius: 9px; padding: 4px;
+  color: var(--ink); text-align: center; font-weight: 800; background: #fff;
+}
+.settings-strip span { font-size: 12px; white-space: nowrap; }
+
+.join-share { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 18px; }
+.join-share h2 { margin-bottom: 6px; font-size: 20px; }
+.join-share-copy { min-width: 0; }
+.player-join-link {
+  display: block; margin: 10px 0; word-break: break-all;
+  color: var(--aqua-dark); font-size: 12px; font-weight: 700; line-height: 1.5;
+}
+.share-note { min-height: 18px; margin: 8px 0 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+.share-note.is-warning { color: #9a6700; }
+.qr-code-frame {
+  display: grid; place-items: center; width: 156px; min-height: 156px;
+  border: 1px solid var(--line); border-radius: 14px; padding: 8px; background: #fff;
+}
+.qr-code-canvas canvas, .qr-code-canvas img { display: block; max-width: 100%; height: auto; }
+
+.roster-band { padding: 16px 18px; }
+.band-title { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px; font-weight: 800; }
+.band-title strong { color: var(--ink); }
+.player-roster { display: flex; flex-wrap: wrap; gap: 8px; min-height: 34px; padding-top: 12px; }
+.player-pill {
+  display: inline-flex; align-items: center; min-height: 28px; padding: 4px 11px; border-radius: 99px;
+  color: #fff; font-size: 12px; font-weight: 800; background: var(--team, #8194a0);
+}
+.empty-roster { color: var(--muted); font-size: 13px; }
+
+/* ============================================================
+   賽場：三隊賽道（每隊一條橫向賽道，手機垂直堆疊）
+   ============================================================ */
+.scoreboard { min-width: 0; }
+.field {
+  display: grid; gap: 14px; padding: 20px;
+  border: 1px solid #d6ecdf; border-radius: var(--radius);
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,0.7), transparent 60%),
+    linear-gradient(180deg, #eafaf1, #d9f3e6);
+  box-shadow: var(--shadow);
+}
+.field-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.field-head h3 { margin: 0; font-size: 22px; }
+.field-hint { color: #5b8a72; font-size: 12px; font-weight: 800; }
+.lanes { display: grid; gap: 12px; }
+
+.lane {
+  display: grid; gap: 8px; padding: 12px 14px;
+  border-radius: 16px; background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(15, 45, 58, 0.06);
+}
+.lane-head { display: flex; align-items: baseline; gap: 10px; }
+.lane-name {
+  font-size: 16px; font-weight: 900; color: var(--team-dark);
+  padding-left: 12px; position: relative;
+}
+.lane-name::before {
+  content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 7px; height: 18px; border-radius: 4px; background: var(--team);
+}
+.lane-meta { color: var(--muted); font-size: 12px; font-weight: 700; }
+.lane-pct { margin-left: auto; font-size: 16px; font-weight: 900; color: var(--team); }
+
+/* 賽道：左起點(取水) → 跑者 → 右終點(灌溉小人)；底層進度條顯示成長 */
+.lane-track {
+  position: relative; height: 104px; overflow: hidden; border-radius: 14px;
+  background:
+    linear-gradient(180deg, #f4fbff 0%, #eaf7ff 55%, #d8efc8 55%, #cdeab9 100%);
+  box-shadow: inset 0 0 0 1px rgba(15,45,58,0.05);
+}
+.lane-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; z-index: 0;
+  background: color-mix(in srgb, var(--team) 18%, transparent);
+  border-right: 2px dashed color-mix(in srgb, var(--team) 45%, transparent);
+  transition: width 320ms ease;
+}
+.zone {
+  position: absolute; top: 0; bottom: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.zone-tag {
+  font-size: 10px; font-weight: 800; color: var(--team-dark);
+  background: rgba(255,255,255,0.82); padding: 1px 7px; border-radius: 99px;
+}
+.start-zone { left: 6px; width: 92px; }
+.finish-zone { right: 6px; width: 168px; }
+
+.crowd { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0; max-width: 88px; }
+.crowd-face { font-size: 18px; line-height: 1; margin: -1px -2px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.12)); }
+.crowd-face.is-support { opacity: 0.4; }
+.crowd-overflow {
+  font-size: 11px; font-weight: 900; color: var(--team-dark);
+  background: #fff; border-radius: 99px; padding: 1px 6px; margin-left: 2px;
+}
+
+.runners { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.runner {
+  position: absolute; top: 44%; left: var(--pos); transform: translate(-50%, -50%);
+  display: grid; justify-items: center;
+  transition: left 240ms linear;
+  filter: drop-shadow(0 3px 2px rgba(15,45,58,0.18));
+}
+.runner-person { font-size: 30px; line-height: 1; }
+.runner-load { font-size: 17px; line-height: 1; margin-top: -6px; }
+.runner.is-outbound .runner-person { animation: run-bob 420ms ease-in-out infinite alternate; }
+.runner.is-returning { transform: translate(-50%, -50%) scaleX(-1); opacity: 0.92; }
+.runner.is-returning .runner-person { animation: run-bob 420ms ease-in-out infinite alternate; }
+.runner.is-pouring { top: 42%; }
+.runner.is-pouring .runner-load { font-size: 24px; margin-top: -2px; animation: pour 380ms ease-in-out infinite alternate; }
+
+/* 終點下雨澆水 */
+.rain { position: absolute; top: 6px; left: 0; right: 0; display: flex; justify-content: space-around; padding: 0 18px; pointer-events: none; opacity: 0; }
+.rain i {
+  width: 4px; height: 14px; border-radius: 60% 60% 70% 70%;
+  background: linear-gradient(#dffaff, #34bfe6);
+}
+.lane-track.is-watering .rain { opacity: 1; }
+.lane-track.is-watering .rain i { animation: rain-fall 520ms ease-in infinite; }
+.lane-track.is-watering .rain i:nth-child(2) { animation-delay: 130ms; }
+.lane-track.is-watering .rain i:nth-child(3) { animation-delay: 260ms; }
+.lane-track.is-watering .rain i:nth-child(4) { animation-delay: 80ms; }
+
+/* 終點五位小人，依澆水比例長大 */
+.growers { display: flex; align-items: flex-end; justify-content: center; gap: 1px; height: 100%; padding-bottom: 6px; }
+.grower {
+  position: relative; display: grid; place-items: center;
+  transform: scale(var(--g)); transform-origin: center bottom;
+  transition: transform 320ms cubic-bezier(.2,.8,.2,1);
+}
+.grower-face { font-size: 26px; line-height: 1; }
+.grower-spark { position: absolute; top: -10px; font-size: 13px; opacity: 0; }
+.grower.is-grown { filter: drop-shadow(0 0 6px rgba(255,206,58,0.9)); }
+.grower.is-grown .grower-spark { opacity: 1; animation: twinkle 900ms ease-in-out infinite alternate; }
+.lane-track.is-watering .grower { animation: grow-bounce 600ms ease-in-out infinite alternate; }
+
+/* ============================================================
+   玩家頁
+   ============================================================ */
+.player-view {
+  display: grid; place-items: start center;
+  width: min(100%, 560px); margin: 0 auto;
+  padding: 8px 20px max(24px, env(safe-area-inset-bottom));
+}
+.join-panel { width: 100%; padding: 26px 22px; text-align: center; }
+.join-emoji { font-size: 44px; display: block; margin-bottom: 6px; }
+.join-panel h2 { margin: 0 auto 18px; max-width: 360px; }
+#join-form { display: grid; gap: 16px; text-align: left; }
+.name-field { display: grid; gap: 7px; color: var(--muted); font-size: 13px; font-weight: 800; }
+.name-field input {
+  min-height: 54px; border: 1.5px solid #bcd9e0; border-radius: 12px; padding: 12px 14px;
+  color: var(--ink); background: #fff; font-size: 18px; font-weight: 700;
+}
+.form-error { min-height: 18px; margin: -8px 0 0; color: #c0362c; font-size: 13px; font-weight: 750; }
+.join-button { width: 100%; min-height: 56px; font-size: 18px; }
+
+.tap-panel { display: grid; gap: 16px; width: 100%; padding-top: 8px; }
+.player-status-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.player-status-row h2 { margin-bottom: 0; }
+.team-tag { color: var(--active-team-dark, var(--aqua-dark)); }
+.tap-counter { font-size: 20px; font-weight: 900; color: var(--active-team-dark, var(--aqua-dark)); white-space: nowrap; }
+.team-progress { height: 10px; border-radius: 99px; background: #e3eef2; overflow: hidden; }
+.team-progress span {
+  display: block; height: 100%; width: 0%; border-radius: 99px;
+  background: var(--active-team, var(--aqua)); transition: width 300ms ease;
+}
+.tap-message { min-height: 22px; color: var(--muted); font-size: 15px; font-weight: 750; text-align: center; }
+
+.tap-button {
+  position: relative; isolation: isolate; justify-self: center;
+  width: min(80vw, 320px); aspect-ratio: 1 / 1; overflow: hidden;
+  border: 0; border-radius: 50%; color: #fff;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--active-team, var(--aqua)) 80%, #fff 20%), var(--active-team, var(--aqua)));
+  box-shadow:
+    inset 0 -16px rgba(0,0,0,0.16),
+    0 12px 0 var(--active-team-dark, var(--aqua-dark)),
+    0 22px 34px rgba(15,45,58,0.28);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+.tap-button:disabled {
+  opacity: 0.55;
+  box-shadow: inset 0 -16px rgba(0,0,0,0.16), 0 8px 0 #6f868d;
+}
+.tap-button:not(:disabled):active {
+  transform: translateY(9px) scale(0.985);
+  box-shadow: inset 0 -8px rgba(0,0,0,0.16), 0 2px 0 var(--active-team-dark, var(--aqua-dark)), 0 8px 14px rgba(15,45,58,0.22);
+}
+.tap-button-ripple {
+  position: absolute; z-index: 0; top: 50%; left: 50%; width: 64%; aspect-ratio: 1;
+  border: 5px solid rgba(255,255,255,0.42); border-radius: 50%;
+  transform: translate(-50%, -50%); animation: ripple 1.7s ease-out infinite;
+}
+.tap-button-drop { display: block; position: relative; z-index: 1; font-size: clamp(30px, 9vw, 42px); }
+.tap-button-icon { display: block; position: relative; z-index: 1; font-size: clamp(30px, 9vw, 46px); font-weight: 950; }
+.tap-button-copy { display: block; position: relative; z-index: 1; margin-top: 4px; font-size: 14px; font-weight: 800; opacity: 0.92; }
+
+/* 玩家加入後：隱藏頂列，打水頁全螢幕置中 */
+body[data-view="player"].is-player-joined .topbar { display: none; }
+body[data-view="player"].is-player-joined .player-view { min-height: 100dvh; place-items: center; padding-top: max(20px, env(safe-area-inset-top)); }
+
+/* ============================================================
+   結算遮罩
+   ============================================================ */
+.winner-overlay {
+  position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 24px;
+  background: rgba(8, 40, 52, 0.55); backdrop-filter: blur(4px);
+}
+.winner-card {
+  width: min(100%, 400px); border-radius: 22px; padding: 34px 26px; text-align: center;
+  background: linear-gradient(180deg, #fffdf3, #fff7df);
+  border: 4px solid #fff; box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+}
+.winner-emoji { font-size: 56px; display: block; margin-bottom: 6px; animation: pop 600ms cubic-bezier(.2,1.4,.4,1); }
+.winner-card h2 { margin: 0 0 8px; font-size: 30px; }
+.winner-card p:last-of-type { margin: 0; color: var(--muted); font-weight: 700; }
+.winner-next-button { width: 100%; margin-top: 22px; font-size: 17px; }
+
+/* ============================================================
+   動畫
+   ============================================================ */
+@keyframes ripple { 0% { transform: translate(-50%,-50%) scale(0.7); opacity: 0.7; } 100% { transform: translate(-50%,-50%) scale(1.2); opacity: 0; } }
+@keyframes run-bob { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+@keyframes pour { from { transform: rotate(-8deg); } to { transform: rotate(10deg) translateY(2px); } }
+@keyframes rain-fall { 0% { transform: translateY(-6px); opacity: 0.3; } 60% { opacity: 1; } 100% { transform: translateY(16px); opacity: 0; } }
+@keyframes twinkle { from { transform: scale(0.8); opacity: 0.6; } to { transform: scale(1.15); opacity: 1; } }
+@keyframes grow-bounce { 0% { transform: scale(var(--g)) translateY(2px); } 100% { transform: scale(var(--g)) translateY(-4px); } }
+@keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* ============================================================
+   響應式
+   ============================================================ */
+@media (max-width: 920px) {
+  .host-view { grid-template-columns: minmax(0, 1fr); }
+  body[data-view="host"] .topbar { width: 100%; }
+}
+@media (max-width: 560px) {
+  .topbar { padding-left: 16px; padding-right: 16px; }
+  .host-view { padding-left: 16px; padding-right: 16px; }
+  .host-actions { grid-template-columns: 1fr 1fr auto; }
+  .join-share { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .join-share-copy { text-align: center; }
+  .field { padding: 16px 14px; }
+  .field-head h3 { font-size: 19px; }
+  /* 賽道在窄螢幕仍維持完整橫向結構，縮短起點區寬度避免擁擠 */
+  .start-zone { width: 76px; }
+  .finish-zone { width: 150px; }
+  .runner-person { font-size: 26px; }
+  .grower-face { font-size: 22px; }
+}

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "water-splash-race": {
+      "rooms": {
+        "$room": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    }
+  }
+}

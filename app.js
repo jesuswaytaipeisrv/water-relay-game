@@ -1,8 +1,11 @@
 import { firebaseConfig } from "./firebase-config.js";
 
 const FINISH_PERSON_COUNT = 5;
-const RELAY_TIMING = { outbound: 1600, pour: 850, return: 2200 };
-const RELAY_CYCLE_MS = RELAY_TIMING.outbound + RELAY_TIMING.pour + RELAY_TIMING.return;
+// 賽道上跑者可見的左右端點（百分比）：左=取水起點，右=灌溉終點。
+const RELAY_PATH = { start: 17, end: 79 };
+// 倒水動作落在一趟行程中段（f≈0.5）的視窗，讓潑水與小人成長同步發生。
+const POUR_WINDOW = { from: 0.46, to: 0.62 };
+const FINISH_DELAY_MS = 1700; // 達標後停在終點潑水的時間，再進入結算
 const TEAM_META = {
   coral: { name: "晨露隊", color: "#e76f51", dark: "#b74733" },
   river: { name: "河浪隊", color: "#277da1", dark: "#15546f" },
@@ -46,9 +49,9 @@ const elements = {
 
 function createDefaultState() {
   return {
-    version: 5, round: 1, status: "lobby", countdownEndsAt: null, startedAt: null, finishedAt: null, finishAnimationEndsAt: null, winner: null,
+    version: 6, round: 1, status: "lobby", countdownEndsAt: null, startedAt: null, finishedAt: null, finishAnimationEndsAt: null, winner: null,
     settings: { bucketCapacity: 24, growthStages: 4, countdownSeconds: 5 },
-    teams: Object.fromEntries(Object.keys(TEAM_META).map((teamId) => [teamId, { waterUnits: 0, deliveryIndex: -1, lastDeliveryAt: 0, deliveryEvents: [] }])), players: {}
+    teams: Object.fromEntries(Object.keys(TEAM_META).map((teamId) => [teamId, { waterUnits: 0 }])), players: {}
   };
 }
 
@@ -68,24 +71,15 @@ function makeRoomCode() {
   return Array.from(values, (value) => characters[value % characters.length]).join("");
 }
 
-function normalizeDeliveryEvents(events, deliveryIndex, lastDeliveryAt) {
-  const normalized = Array.isArray(events) ? events.map((event) => ({
-    runnerIndex: clampNumber(event?.runnerIndex, -1, -1, 1000000),
-    startsAt: clampNumber(event?.startsAt, 0, 0, Number.MAX_SAFE_INTEGER)
-  })).filter((event) => event.runnerIndex >= 0 && event.startsAt > 0) : [];
-  if (!normalized.length && deliveryIndex >= 0 && lastDeliveryAt > 0) normalized.push({ runnerIndex: deliveryIndex, startsAt: lastDeliveryAt });
-  return normalized.sort((left, right) => left.startsAt - right.startsAt);
-}
-
 function normalizeState(value) {
-  if (!value || ![3, 4, 5].includes(value.version)) return createDefaultState();
+  if (!value || ![3, 4, 5, 6].includes(value.version)) return createDefaultState();
   const base = createDefaultState();
   const source = value;
   const players = Object.fromEntries(Object.entries(source.players || {}).filter(([, player]) => player).map(([id, player]) => [id, {
     name: String(player.name || "隊員").slice(0, 16), team: TEAM_META[player.team] ? player.team : null, taps: clampNumber(player.taps, 0, 0, 1000000), joinedAt: clampNumber(player.joinedAt, 0, 0, Number.MAX_SAFE_INTEGER)
   }]));
   return {
-    ...base, ...source, version: 5, round: clampNumber(source.round, 1, 1, 100000),
+    ...base, ...source, version: 6, round: clampNumber(source.round, 1, 1, 100000),
     status: ["lobby", "countdown", "running", "finishing", "finished"].includes(source.status) ? source.status : "lobby",
     finishAnimationEndsAt: clampNumber(source.finishAnimationEndsAt, 0, 0, Number.MAX_SAFE_INTEGER) || null,
     settings: {
@@ -93,11 +87,9 @@ function normalizeState(value) {
       growthStages: clampNumber(source.settings?.growthStages, 4, 1, 8),
       countdownSeconds: clampNumber(source.settings?.countdownSeconds, 5, 1, 20)
     },
+    // 只保留 waterUnits 作為唯一同步來源；舊版的 deliveryEvents 等欄位升級時自動丟棄。
     teams: Object.fromEntries(Object.keys(TEAM_META).map((teamId) => [teamId, {
-      waterUnits: clampNumber(source.teams?.[teamId]?.waterUnits, 0, 0, 1000000),
-      deliveryIndex: clampNumber(source.teams?.[teamId]?.deliveryIndex, -1, -1, 1000000),
-      lastDeliveryAt: clampNumber(source.teams?.[teamId]?.lastDeliveryAt, 0, 0, Number.MAX_SAFE_INTEGER),
-      deliveryEvents: normalizeDeliveryEvents(source.teams?.[teamId]?.deliveryEvents, clampNumber(source.teams?.[teamId]?.deliveryIndex, -1, -1, 1000000), clampNumber(source.teams?.[teamId]?.lastDeliveryAt, 0, 0, Number.MAX_SAFE_INTEGER))
+      waterUnits: clampNumber(source.teams?.[teamId]?.waterUnits, 0, 0, 100000000)
     }])),
     players, winner: TEAM_META[source.winner] ? source.winner : null
   };
@@ -159,68 +151,27 @@ async function copyPlayerJoinLink() {
   renderJoinQrCode();
 }
 
+// 一切由 waterUnits 推導：一趟行程＝一桶水（bucketCapacity 次打水），
+// 行程前半段提水往終點（out）、中段倒水（pour）、後半段空手返回（back）。
+// 因此跑者位置只跟著打水次數前進，沒人打水就停住；倒水時讓終點小人成長一階。
 function teamMetrics(teamId) {
   const units = game.teams[teamId].waterUnits;
   const { bucketCapacity, growthStages } = game.settings;
-  const deliveredBuckets = Math.floor(units / bucketCapacity);
-  const maxGrowth = FINISH_PERSON_COUNT * growthStages;
-  const growthTotal = Math.min(units / bucketCapacity, maxGrowth);
-  const personGrowth = growthTotal / FINISH_PERSON_COUNT;
-  const people = Array.from({ length: FINISH_PERSON_COUNT }, () => Math.min(growthStages, personGrowth));
-  return { units, deliveredBuckets, growthTotal, maxGrowth, people, smallFill: Math.round(((units % bucketCapacity) / bucketCapacity) * 100), progress: Math.round((growthTotal / maxGrowth) * 100) };
+  const maxGrowth = FINISH_PERSON_COUNT * growthStages; // 需要的總澆水次數
+  const trips = units / bucketCapacity;                 // 連續的行程數
+  const f = trips - Math.floor(trips);                  // 當前行程內進度 0..1
+  const outbound = f < 0.5;
+  const legFrac = outbound ? f / 0.5 : (f - 0.5) / 0.5; // 該段（去／回）內 0..1
+  const span = RELAY_PATH.end - RELAY_PATH.start;
+  const posPct = outbound ? RELAY_PATH.start + legFrac * span : RELAY_PATH.end - legFrac * span;
+  const pouring = f >= POUR_WINDOW.from && f <= POUR_WINDOW.to;
+  // 倒水發生在每趟中段（f 越過 0.5）；已完成的澆水次數 = floor(trips + 0.5)
+  const pours = Math.min(maxGrowth, Math.floor(trips + 0.5));
+  const growthRatio = Math.min(1, pours / maxGrowth);   // 五位小人共同的成長比例
+  return { units, maxGrowth, pours, growthRatio, posPct, outbound, pouring, progress: Math.round(growthRatio * 100) };
 }
 
-// 終點小人：以 emoji 呈現，隨澆水比例由小長到大，長大後換成大人並冒出星星。
-function personMarkup(stage, index, growthStages) {
-  const ratio = Math.min(1, stage / growthStages);
-  const scale = (0.42 + ratio * 0.58).toFixed(3);
-  const grown = ratio >= 1;
-  const faces = ["🧒", "👦", "👧", "🧒", "👶"];
-  const label = grown ? "已長大" : `吸收水分 ${Math.round(ratio * 100)}%`;
-  return `<span class="grower ${grown ? "is-grown" : ""}" style="--g:${scale}" aria-label="第 ${index + 1} 位小人，${label}">
-    <span class="grower-face">${grown ? "🧑" : faces[index % faces.length]}</span>
-    <span class="grower-spark" aria-hidden="true">✨</span>
-  </span>`;
-}
-
-// 接力跑者：emoji 人物 + 水桶，依進度沿賽道由左(起點)往右(終點)移動；倒水時換成潑水動作。
-function runnerMarkup(role, progress, pouring, label) {
-  const pos = Math.round(12 + Math.min(1, Math.max(0, progress)) * 70);
-  const accessibleLabel = escapeHtml(label);
-  const person = pouring ? "🧍" : "🏃";
-  const load = pouring ? "💦" : "🪣";
-  return `<span class="runner ${role} ${pouring ? "is-pouring" : ""}" style="--pos:${pos}%" aria-label="${accessibleLabel}">
-    <span class="runner-person" aria-hidden="true">${person}</span><span class="runner-load" aria-hidden="true">${load}</span>
-  </span>`;
-}
-
-function relayIsActive() { return game.status === "running" || game.status === "finishing"; }
-
-function isPouringAtFinish(teamId) {
-  if (!relayIsActive()) return false;
-  const now = Date.now();
-  return game.teams[teamId].deliveryEvents.some((event) => {
-    const elapsed = now - event.startsAt;
-    return elapsed >= RELAY_TIMING.outbound && elapsed < RELAY_TIMING.outbound + RELAY_TIMING.pour;
-  });
-}
-
-function relayMarkup(teamId) {
-  const team = game.teams[teamId];
-  const members = teamPlayers(teamId);
-  if (!members.length || !relayIsActive()) return "";
-  const now = Date.now();
-  return team.deliveryEvents.map((event) => {
-    const elapsed = now - event.startsAt;
-    if (elapsed < 0 || elapsed >= RELAY_CYCLE_MS) return "";
-    const runnerIndex = event.runnerIndex % members.length;
-    const currentName = members[runnerIndex]?.name || "隊員";
-    if (elapsed < RELAY_TIMING.outbound) return runnerMarkup("is-outbound", elapsed / RELAY_TIMING.outbound, false, `${currentName}正提著兩桶水前往灌溉`);
-    if (elapsed < RELAY_TIMING.outbound + RELAY_TIMING.pour) return runnerMarkup("is-pouring", 1, true, `${currentName}正在灌溉`);
-    const returnProgress = (elapsed - RELAY_TIMING.outbound - RELAY_TIMING.pour) / RELAY_TIMING.return;
-    return runnerMarkup("is-returning", 1 - returnProgress, false, `${currentName}正提著空桶返回起點`);
-  }).join("");
-}
+const RELAY_FACES = ["🧒", "👦", "👧", "🧒", "👶"]; // 終點五位小人未長大時的臉
 
 // 起點群眾：以 emoji 頭像表示等待接力的隊員，超過顯示上限以 +N 標示。
 function crowdMarkup(teamId) {
@@ -237,46 +188,99 @@ function crowdMarkup(teamId) {
   return `${visible}${overflow}`;
 }
 
-// 單一隊伍賽道：左側取水起點 → 接力跑者 → 右側終點五位小人，下方為成長進度條。
-function irrigationLaneMarkup(teamId) {
+// 賽場採「建一次、之後只更新樣式」的策略：跑者與小人是常駐 DOM，
+// 位置只透過 style 變動 + CSS 過渡平滑移動，不會因每 250ms 重繪而中斷搖晃與成長動畫。
+let fieldSignature = "";
+const laneRefs = {};
+
+// 賽道骨架：沙地賽道上散落石頭，左取水起點群眾、中間提水跑者、右終點五位小人。
+function laneSkeleton(teamId) {
   const meta = TEAM_META[teamId];
-  const metric = teamMetrics(teamId);
-  const people = metric.people.map((stage, index) => personMarkup(stage, index, game.settings.growthStages)).join("");
-  const watering = isPouringAtFinish(teamId);
-  return `<section class="lane" style="--team:${meta.color};--team-dark:${meta.dark}" aria-label="${meta.name}由左側取水往右側灌溉">
+  const growers = Array.from({ length: FINISH_PERSON_COUNT }, (_, i) =>
+    `<span class="grower" data-i="${i}"><span class="grower-spark" aria-hidden="true">✨</span><span class="grower-face">${RELAY_FACES[i]}</span></span>`
+  ).join("");
+  return `<section class="lane" data-team="${teamId}" style="--team:${meta.color};--team-dark:${meta.dark}" aria-label="${meta.name}由左側取水往右側灌溉">
     <div class="lane-head">
       <span class="lane-name">${meta.name}</span>
-      <span class="lane-meta">${teamPlayers(teamId).length} 位 · ${metric.deliveredBuckets} 桶</span>
-      <span class="lane-pct">${metric.progress}%</span>
+      <span class="lane-meta"></span>
+      <span class="lane-pct">0%</span>
     </div>
-    <div class="lane-track ${watering ? "is-watering" : ""}">
-      <div class="lane-fill" style="width:${metric.progress}%"></div>
+    <div class="lane-track">
+      <div class="lane-fill"></div>
+      <span class="stone stone-a" aria-hidden="true">🪨</span><span class="stone stone-b" aria-hidden="true">🪨</span><span class="stone stone-c" aria-hidden="true">🌵</span>
       <div class="zone start-zone"><div class="crowd">${crowdMarkup(teamId)}</div><span class="zone-tag">💧 取水</span></div>
-      <div class="runners">${relayMarkup(teamId)}</div>
+      <div class="runner" aria-hidden="true">
+        <div class="runner-fig">
+          <div class="runner-sway">
+            <span class="bk bk-left">🪣</span><span class="person">🚶</span><span class="bk bk-right">🪣</span>
+          </div>
+        </div>
+        <span class="runner-splash" aria-hidden="true">💦</span>
+      </div>
       <div class="zone finish-zone">
-        <div class="rain" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-        <div class="growers">${people}</div>
+        <div class="rain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="growers">${growers}</div>
         <span class="zone-tag">🌱 灌溉</span>
       </div>
     </div>
   </section>`;
 }
 
-function sharedRaceStageMarkup() {
-  return `<section class="field" aria-label="三隊同場接力賽場">
+function buildFieldSkeleton() {
+  elements.hostScoreboard.innerHTML = `<section class="field" aria-label="三隊同場接力賽場">
     <header class="field-head">
       <div><p class="section-label">三隊同場接力</p><h3>澆水成長賽場</h3></div>
-      <span class="field-hint">隊員從左側取水，提到右側讓五位小人長大</span>
+      <span class="field-hint">手指打水時提水人才前進；提到右側倒水讓乾枯小人長大</span>
     </header>
-    <div class="lanes">${Object.keys(TEAM_META).map(irrigationLaneMarkup).join("")}</div>
+    <div class="lanes">${Object.keys(TEAM_META).map(laneSkeleton).join("")}</div>
   </section>`;
+  Object.keys(TEAM_META).forEach((teamId) => {
+    const lane = elements.hostScoreboard.querySelector(`.lane[data-team="${teamId}"]`);
+    laneRefs[teamId] = {
+      track: lane.querySelector(".lane-track"), fill: lane.querySelector(".lane-fill"),
+      pct: lane.querySelector(".lane-pct"), meta: lane.querySelector(".lane-meta"),
+      runner: lane.querySelector(".runner"), growers: [...lane.querySelectorAll(".grower")]
+    };
+  });
+}
+
+// 只在隊員名單變動時重建骨架（群眾頭像會變），其餘每次只更新樣式。
+function renderField() {
+  const signature = Object.keys(TEAM_META).map((t) => `${t}:${teamPlayers(t).map((p) => p.name).join(",")}`).join("|");
+  if (signature !== fieldSignature || !laneRefs.coral) { buildFieldSkeleton(); fieldSignature = signature; }
+
+  const active = game.status === "running" || game.status === "finishing";
+  Object.keys(TEAM_META).forEach((teamId) => {
+    const m = teamMetrics(teamId);
+    const ref = laneRefs[teamId];
+    const hasMembers = teamPlayers(teamId).length > 0;
+    const pouring = active && m.pouring;
+    ref.fill.style.width = `${m.progress}%`;
+    ref.pct.textContent = `${m.progress}%`;
+    ref.meta.textContent = `${teamPlayers(teamId).length} 位 · 澆水 ${m.pours} 次`;
+    // 跑者：位置跟著 waterUnits，CSS 過渡讓它慢慢滑動；面向移動方向。
+    ref.runner.style.left = `${m.posPct}%`;
+    ref.runner.classList.toggle("show", active && hasMembers);
+    ref.runner.classList.toggle("face-right", m.outbound);
+    ref.runner.classList.toggle("is-pour", pouring);
+    ref.track.classList.toggle("is-watering", pouring);
+    // 終點小人：依澆水比例由小變大（CSS 過渡平滑），倒水當下加 is-pour 彈跳放大。
+    const scale = (0.4 + m.growthRatio * 0.6).toFixed(3);
+    const grown = m.growthRatio >= 1;
+    ref.growers.forEach((g, i) => {
+      g.style.setProperty("--g", scale);
+      g.classList.toggle("is-grown", grown);
+      g.classList.toggle("is-pour", pouring);
+      g.querySelector(".grower-face").textContent = grown ? "🧑" : RELAY_FACES[i];
+    });
+  });
 }
 
 function statusCopy() {
   const seconds = game.countdownEndsAt ? Math.max(0, Math.ceil((game.countdownEndsAt - Date.now()) / 1000)) : 0;
   if (game.status === "countdown") return { title: `${seconds} 秒後開始`, copy: "各隊隊員在取水起點準備雙桶接力。" };
-  if (game.status === "running") return { title: "全力提水中", copy: "每提滿一桶，就派一位隊員雙手提桶前往灌溉。" };
-  if (game.status === "finishing") return { title: "最後一趟回程中", copy: "完成灌溉的隊員正在帶著空桶返回起點。" };
+  if (game.status === "running") return { title: "全力提水中", copy: "手指打水，提水人才會慢慢走向終點倒水讓小人長大。" };
+  if (game.status === "finishing") return { title: "灌溉成功！", copy: "最後一桶水正在潑灑，準備結算。" };
   if (game.status === "finished") return { title: `${TEAM_META[game.winner]?.name || "本回合"}獲勝`, copy: "最先讓五位小人全部長大。" };
   return { title: "等待三隊就位", copy: "隊員不限人數，分隊後從起點輪流雙桶接力灌溉。" };
 }
@@ -295,12 +299,12 @@ function render() {
     const locked = game.status !== "lobby";
     const unassignedCount = Object.values(game.players).filter((player) => !player.team).length;
     elements.hostHeading.textContent = copy.title; elements.hostCopy.textContent = unassignedCount ? `目前有 ${unassignedCount} 人待分隊，請先按「自動分隊」。` : copy.copy;
-    elements.startButton.textContent = game.status === "lobby" ? "開始倒數" : game.status === "finished" ? "下一輪" : game.status === "countdown" ? "倒數中" : game.status === "finishing" ? "回程中" : "進行中";
+    elements.startButton.textContent = game.status === "lobby" ? "開始倒數" : game.status === "finished" ? "下一輪" : game.status === "countdown" ? "倒數中" : game.status === "finishing" ? "結算中" : "進行中";
     elements.startButton.disabled = game.status === "countdown" || game.status === "running" || game.status === "finishing" || unassignedCount > 0 || totalPlayers === 0;
     elements.autoAssignButton.disabled = locked || totalPlayers === 0;
     elements.bucketCapacity.value = String(game.settings.bucketCapacity); elements.growthStages.value = String(game.settings.growthStages); elements.countdownSeconds.value = String(game.settings.countdownSeconds);
     [elements.bucketCapacity, elements.growthStages, elements.countdownSeconds].forEach((input) => { input.disabled = locked; });
-    elements.hostScoreboard.innerHTML = sharedRaceStageMarkup();
+    renderField();
     elements.playerCount.textContent = `${totalPlayers} 人`;
     const roster = Object.values(game.players).sort((a, b) => a.joinedAt - b.joinedAt);
     elements.playerRoster.innerHTML = roster.length ? roster.map((player) => `<span class="player-pill" style="--team:${TEAM_META[player.team]?.color || "#687d94"}">${escapeHtml(player.name)}${player.team ? "" : "（待分隊）"}</span>`).join("") : '<span class="empty-roster">尚未有人加入</span>';
@@ -333,8 +337,8 @@ function renderPlayerPanel() {
   const countdownSeconds = game.countdownEndsAt ? Math.max(0, Math.ceil((game.countdownEndsAt - Date.now()) / 1000)) : 0;
   elements.yourTeamLabel.textContent = TEAM_META[teamId].name; elements.tapCounter.textContent = `${Number(player?.taps || 0)} 次`;
   elements.tapButton.disabled = game.status !== "running";
-  elements.tapHeading.textContent = game.status === "running" ? "快速打水" : game.status === "finishing" ? "最後一趟回程中" : game.status === "finished" ? "本回合結束" : game.status === "countdown" ? `${countdownSeconds} 秒後開始` : "準備提水";
-  elements.tapMessage.textContent = game.status === "running" ? `五位小人的成長水分已達 ${metric.progress}%，繼續提水。` : game.status === "finishing" ? "隊員正在帶著空桶返回起點，請等待結算。" : game.status === "finished" ? `${TEAM_META[game.winner]?.name || "本回合"}最先完成灌溉。` : game.status === "countdown" ? "倒數中，先把手指放在按鈕上。" : "等待主持人開始。";
+  elements.tapHeading.textContent = game.status === "running" ? "快速打水" : game.status === "finishing" ? "灌溉成功！" : game.status === "finished" ? "本回合結束" : game.status === "countdown" ? `${countdownSeconds} 秒後開始` : "準備提水";
+  elements.tapMessage.textContent = game.status === "running" ? `五位小人的成長水分已達 ${metric.progress}%，繼續提水。` : game.status === "finishing" ? "最後一桶水正在潑灑，請等待結算。" : game.status === "finished" ? `${TEAM_META[game.winner]?.name || "本回合"}最先完成灌溉。` : game.status === "countdown" ? "倒數中，先把手指放在按鈕上。" : "等待主持人開始。";
 }
 
 function writeLocalState(next) { game = normalizeState(next); localStorage.setItem(localKey, JSON.stringify(game)); backend.channel?.postMessage(game); render(); }
@@ -343,21 +347,10 @@ async function mutateGame(mutator) {
   const next = clone(game); mutator(next); writeLocalState(next);
 }
 
-function queueDelivery(team, timestamp) {
-  const activeOrQueued = team.deliveryEvents.filter((event) => event.startsAt + RELAY_CYCLE_MS > timestamp);
-  const previous = activeOrQueued[activeOrQueued.length - 1];
-  team.deliveryIndex += 1;
-  const startsAt = Math.max(timestamp, previous ? previous.startsAt + RELAY_TIMING.outbound + RELAY_TIMING.pour : 0);
-  team.deliveryEvents = [...activeOrQueued, { runnerIndex: team.deliveryIndex, startsAt }];
-  team.lastDeliveryAt = startsAt;
-}
-
-function queuePendingDeliveries(state, timestamp) {
-  const maxDeliveries = FINISH_PERSON_COUNT * state.settings.growthStages;
-  Object.values(state.teams).forEach((team) => {
-    const deliveredBuckets = Math.min(Math.floor(team.waterUnits / state.settings.bucketCapacity), maxDeliveries);
-    while (team.deliveryIndex + 1 < deliveredBuckets) queueDelivery(team, timestamp);
-  });
+// 達標所需的總打水量：澆水 maxGrowth 次，倒水落在每趟中段，故約 (maxGrowth - 0.5) 桶。
+function unitsToWin(state) {
+  const maxGrowth = FINISH_PERSON_COUNT * state.settings.growthStages;
+  return (maxGrowth - 0.5) * state.settings.bucketCapacity;
 }
 
 async function joinGame(event) {
@@ -388,11 +381,7 @@ async function sendTap() {
     await mutateGame((state) => {
       const current = state.players[currentPlayer.id];
       if (state.status !== "running" || !current?.team) return;
-      const team = state.teams[current.team];
-      const previousBuckets = Math.floor(team.waterUnits / state.settings.bucketCapacity);
-      team.waterUnits += 1;
-      const deliveredBuckets = Math.floor(team.waterUnits / state.settings.bucketCapacity);
-      if (deliveredBuckets > previousBuckets) queueDelivery(team, Date.now());
+      state.teams[current.team].waterUnits += 1;
       current.taps += 1;
     });
   } catch (error) { showConnectionProblem(error); }
@@ -421,7 +410,7 @@ async function prepareNextRound() {
 }
 
 function resetRoundState(state) {
-  state.round += 1; state.status = "lobby"; state.countdownEndsAt = null; state.startedAt = null; state.finishedAt = null; state.finishAnimationEndsAt = null; state.winner = null; Object.values(state.teams).forEach((team) => { team.waterUnits = 0; team.deliveryIndex = -1; team.lastDeliveryAt = 0; team.deliveryEvents = []; }); Object.values(state.players).forEach((player) => { player.taps = 0; });
+  state.round += 1; state.status = "lobby"; state.countdownEndsAt = null; state.startedAt = null; state.finishedAt = null; state.finishAnimationEndsAt = null; state.winner = null; Object.values(state.teams).forEach((team) => { team.waterUnits = 0; }); Object.values(state.players).forEach((player) => { player.taps = 0; });
 }
 
 async function autoAssignTeams() {
@@ -453,22 +442,14 @@ async function reconcileGameClock() {
   if (!isHost) { render(); return; }
   if (game.status === "countdown" && Date.now() >= game.countdownEndsAt) await mutateGame((state) => { if (state.status === "countdown" && Date.now() >= state.countdownEndsAt) { state.status = "running"; state.startedAt = Date.now(); } });
   if (game.status === "running") {
-    const hasPendingDeliveries = Object.keys(TEAM_META).some((teamId) => {
-      const metric = teamMetrics(teamId);
-      return game.teams[teamId].deliveryIndex + 1 < Math.min(metric.deliveredBuckets, metric.maxGrowth);
-    });
-    const ready = Object.keys(TEAM_META).filter((teamId) => {
-      const metric = teamMetrics(teamId);
-      return metric.growthTotal >= metric.maxGrowth;
-    });
-    if (hasPendingDeliveries || ready.length) await mutateGame((state) => {
+    const someReady = Object.keys(TEAM_META).some((teamId) => teamMetrics(teamId).pours >= teamMetrics(teamId).maxGrowth);
+    if (someReady) await mutateGame((state) => {
       if (state.status !== "running") return;
-      queuePendingDeliveries(state, Date.now());
-      const winners = Object.keys(TEAM_META).filter((teamId) => Math.min(Math.floor(state.teams[teamId].waterUnits / state.settings.bucketCapacity), FINISH_PERSON_COUNT * state.settings.growthStages) >= FINISH_PERSON_COUNT * state.settings.growthStages);
+      const winThreshold = unitsToWin(state);
+      const winners = Object.keys(TEAM_META).filter((teamId) => state.teams[teamId].waterUnits >= winThreshold);
       if (winners.length) {
         winners.sort((left, right) => state.teams[right].waterUnits - state.teams[left].waterUnits || left.localeCompare(right));
-        const lastReturnAt = Math.max(Date.now(), ...Object.values(state.teams).flatMap((team) => team.deliveryEvents.map((event) => event.startsAt + RELAY_CYCLE_MS)));
-        state.status = "finishing"; state.winner = winners[0]; state.finishAnimationEndsAt = lastReturnAt;
+        state.status = "finishing"; state.winner = winners[0]; state.finishAnimationEndsAt = Date.now() + FINISH_DELAY_MS;
       }
     });
   }

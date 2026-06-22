@@ -27,7 +27,7 @@
 - 角色全部以 emoji 呈現，無圖片資產、跨裝置渲染一致。
 - Firebase Realtime Database + 匿名登入提供跨手機即時同步；未設定或連線失敗時退回 `localStorage` + `BroadcastChannel` 的同瀏覽器示範模式。
 - 以隊伍累積 `waterUnits` 作為唯一計分來源，避免多人同時點擊重複計分。
-- 目前快取版本：`styles.css?v=20260622-3`、`app.js?v=20260622-3`。
+- 目前快取版本：`styles.css?v=20260622-4`、`app.js?v=20260622-4`。
 
 ## 文件
 

@@ -196,10 +196,8 @@ body[data-view="host"] .topbar { width: min(100%, 1320px); }
   border-right: 2px dashed color-mix(in srgb, var(--team) 55%, transparent);
   transition: width 600ms ease;
 }
-.stone { position: absolute; bottom: 7px; z-index: 1; line-height: 1; filter: drop-shadow(0 1px 1px rgba(120,80,30,0.3)); opacity: 0.9; }
-.stone-a { left: 34%; font-size: 15px; }
-.stone-b { left: 50%; bottom: 10px; font-size: 11px; }
-.stone-c { left: 63%; font-size: 17px; bottom: 6px; }
+/* 位置／大小由 JS 隨機產生（inline style 設定 left／bottom／font-size／opacity）。 */
+.stone { position: absolute; z-index: 1; line-height: 1; filter: drop-shadow(0 1px 1px rgba(120,80,30,0.3)); }
 
 .zone {
   position: absolute; top: 0; bottom: 0; z-index: 2;
@@ -259,6 +257,9 @@ body[data-view="host"] .topbar { width: min(100%, 1320px); }
 .runner-bucket-left { left: -10px; } .runner-bucket-right { right: -10px; }
 .runner-bucket::before { content: ""; position: absolute; top: -8px; left: 2px; width: 7px; height: 8px; border: 2px solid #fff; border-bottom: 0; border-radius: 8px 8px 0 0; }
 .runner-bucket i { position: absolute; top: 4px; left: 4px; width: 5px; height: 3px; border-radius: 50%; background: rgba(255,255,255,0.75); }
+/* 回程：水桶倒空（只剩白色桶身輪廓，無水）。 */
+.runner.is-return .runner-bucket { background: transparent; }
+.runner.is-return .runner-bucket i { opacity: 0; }
 /* 走路時沉甸甸地搖晃 */
 .runner:not(.is-pour) .relay-runner .runner-body, .runner:not(.is-pour) .relay-runner .runner-legs { animation: heavy-step 520ms ease-in-out infinite alternate; }
 .irrigation-splash, .bucket-spray { display: none; }

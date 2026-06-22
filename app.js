@@ -185,6 +185,19 @@ function crowdMarkup(teamId) {
   return `${visible}${overflow}`;
 }
 
+// 沙地裝飾：每條賽道隨機數量、位置、大小的石頭與仙人掌（避開左右取水／灌溉區）。
+function decorationsMarkup() {
+  const count = 2 + Math.floor(Math.random() * 4); // 2–5 個
+  return Array.from({ length: count }, () => {
+    const emoji = Math.random() < 0.7 ? "🪨" : "🌵";
+    const left = 20 + Math.random() * 52;          // 20%–72%
+    const bottom = 5 + Math.random() * 9;          // 5–14px
+    const size = 11 + Math.random() * 7;           // 11–18px
+    const opacity = (0.78 + Math.random() * 0.22).toFixed(2);
+    return `<span class="stone" aria-hidden="true" style="left:${left.toFixed(1)}%;bottom:${bottom.toFixed(0)}px;font-size:${size.toFixed(0)}px;opacity:${opacity}">${emoji}</span>`;
+  }).join("");
+}
+
 // codex 提水跑者造型（雙手各提一桶）。
 function relayRunnerMarkup() {
   return `<div class="relay-runner">
@@ -220,7 +233,7 @@ function laneSkeleton(teamId) {
     </div>
     <div class="lane-track">
       <div class="lane-fill"></div>
-      <span class="stone stone-a" aria-hidden="true">🪨</span><span class="stone stone-b" aria-hidden="true">🪨</span><span class="stone stone-c" aria-hidden="true">🌵</span>
+      ${decorationsMarkup()}
       <div class="zone start-zone"><div class="crowd">${crowdMarkup(teamId)}</div><span class="zone-tag">💧 取水</span></div>
       <div class="runner" aria-hidden="true">${relayRunnerMarkup()}</div>
       <div class="zone finish-zone">
@@ -264,10 +277,12 @@ function renderField() {
     ref.fill.style.width = `${m.progress}%`;
     ref.pct.textContent = `${m.progress}%`;
     ref.meta.textContent = `${teamPlayers(teamId).length} 位 · 澆水 ${m.pours} 次`;
-    // 跑者：位置跟著 waterUnits，CSS 過渡讓它慢慢滑動；倒水時切換潑水姿態。
+    // 跑者：位置跟著 waterUnits，CSS 過渡讓它慢慢滑動；倒水時潑水姿態，回程時水桶倒空。
+    const returning = active && !m.outbound && !pouring;
     ref.runner.style.left = `${m.posPct}%`;
     ref.runner.classList.toggle("show", active && hasMembers);
     ref.runner.classList.toggle("is-pour", pouring);
+    ref.runner.classList.toggle("is-return", returning);
     ref.track.classList.toggle("is-watering", pouring);
     // 終點小人：依澆水比例由小變大（CSS 過渡平滑）；倒水時整片小人彈跳（happy-sprinkle）。
     const personScale = (0.24 + m.growthRatio * 0.76).toFixed(3);

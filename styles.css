@@ -208,7 +208,7 @@ body[data-view="host"] .topbar { width: min(100%, 1320px); }
   background: rgba(255,250,235,0.86); padding: 1px 7px; border-radius: 99px;
 }
 .start-zone { left: 6px; width: 92px; }
-.finish-zone { right: 6px; width: 168px; }
+.finish-zone { right: 6px; width: 182px; }
 
 /* 共用五官（提水人物、小人、群眾） */
 .person-eye, .runner-eye, .crowd-face i { position: absolute; top: 7px; width: 2.5px; height: 3.5px; border-radius: 50%; background: #264653; }
@@ -287,8 +287,11 @@ body[data-view="host"] .topbar { width: min(100%, 1320px); }
 .lane-track.is-watering .tiny-person { animation: happy-sprinkle 600ms ease-in-out infinite alternate; }
 
 /* 終點五位小人：codex 卡通造型，依澆水比例由小慢慢變大；長大後換暖色並發光。 */
-.tiny-people { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 100%; padding-bottom: 2px; }
-.tiny-person { position: relative; width: 32px; height: 68px; transform: scale(var(--person-scale, 0.24)); transform-origin: center bottom; transition: transform 420ms cubic-bezier(.2,.8,.2,1), filter 340ms ease; filter: drop-shadow(0 3px 2px rgba(16,42,67,0.16)); }
+/* 隨機站位：容器填滿終點區，每位小人 absolute，由 JS 設定 left/bottom；標籤移到角落避免遮擋。 */
+.tiny-people { position: relative; width: 100%; height: 100%; }
+.finish-zone .tiny-people { position: absolute; inset: 0; }
+.finish-zone .zone-tag { position: absolute; bottom: 4px; right: 6px; }
+.tiny-person { position: absolute; bottom: 2px; width: 32px; height: 68px; transform: scale(var(--person-scale, 0.24)); transform-origin: center bottom; transition: transform 420ms cubic-bezier(.2,.8,.2,1), filter 340ms ease; filter: drop-shadow(0 3px 2px rgba(16,42,67,0.16)); }
 .person-head { position: absolute; z-index: 2; top: 8px; left: 7px; width: 18px; height: 18px; border-radius: 50%; background: #ffd3b5; }
 .person-hair { position: absolute; z-index: 3; top: 4px; left: 8px; width: 17px; height: 10px; border-radius: 12px 12px 4px 4px; background: #7c4b3b; }
 .person-bow { top: 6px; left: 22px; transform: scale(0.58) rotate(28deg); }

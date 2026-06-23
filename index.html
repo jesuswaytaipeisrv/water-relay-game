@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#15a6b6">
     <title>提水長大賽</title>
-    <link rel="stylesheet" href="styles.css?v=20260622-7">
+    <link rel="stylesheet" href="styles.css?v=20260623-1">
   </head>
   <body>
     <main class="app-shell">
@@ -94,27 +94,33 @@
           </div>
           <div class="team-progress" aria-hidden="true"><span id="team-progress-fill"></span></div>
           <div id="tap-message" class="tap-message" aria-live="polite">等待主持人開始</div>
-          <button id="tap-button" class="tap-button" type="button" disabled aria-label="打水">
-            <span class="tap-button-ripple"></span>
-            <span class="tap-button-drop" aria-hidden="true">💧</span>
-            <span class="tap-button-icon">打水</span>
-            <span class="tap-button-copy">快速連點</span>
-          </button>
+          <div class="tap-stage">
+            <div id="combo-badge" class="combo-badge" hidden aria-hidden="true"></div>
+            <button id="tap-button" class="tap-button" type="button" disabled aria-label="打水">
+              <span class="tap-button-ripple"></span>
+              <span class="tap-button-drop" aria-hidden="true">💧</span>
+              <span class="tap-button-icon">打水</span>
+              <span class="tap-button-copy">快速連點</span>
+            </button>
+            <div id="tap-fx" class="tap-fx" aria-hidden="true"></div>
+          </div>
           <button id="change-team-button" class="text-button" type="button">離開等待名單</button>
         </section>
       </section>
 
       <section id="winner-overlay" class="winner-overlay" hidden aria-live="assertive">
+        <div id="confetti" class="confetti" aria-hidden="true"></div>
         <div class="winner-card">
           <span class="winner-emoji" aria-hidden="true">🏆</span>
           <p class="section-label">本回合結果</p>
           <h2 id="winner-title">晨露隊獲勝</h2>
           <p id="winner-copy">最先讓五位小人全部長大。</p>
+          <div id="winner-mvp" class="winner-mvp"></div>
           <button id="winner-next-button" class="command-button winner-next-button" type="button">下一輪</button>
         </div>
       </section>
     </main>
     <script defer src="vendor/qrcode.min.js?v=1.0.0"></script>
-    <script type="module" src="app.js?v=20260622-7"></script>
+    <script type="module" src="app.js?v=20260623-1"></script>
   </body>
 </html>

@@ -394,6 +394,102 @@ body[data-view="player"].is-player-joined .player-view { min-height: 100dvh; pla
 .winner-next-button { width: 100%; margin-top: 22px; font-size: 17px; }
 
 /* ============================================================
+   賽場天空場景：太陽 + 飄移雲朵 + 沙丘剪影（置於賽道後方）
+   ============================================================ */
+.field { position: relative; overflow: hidden; }
+.field-head, .lanes { position: relative; z-index: 1; }
+.field-scene {
+  position: absolute; top: 0; left: 0; right: 0; height: 102px; z-index: 0; overflow: hidden;
+  border-radius: var(--radius) var(--radius) 0 0; pointer-events: none;
+  background: linear-gradient(180deg, #bfe6ff 0%, #dff3ef 62%, rgba(241,218,159,0) 100%);
+}
+.scene-sun {
+  position: absolute; top: 12px; right: 7%; width: 52px; height: 52px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #fff7cf, #ffd23f 60%, #ffb01f);
+  box-shadow: 0 0 28px rgba(255,200,60,0.6);
+}
+.scene-cloud {
+  position: absolute; width: 56px; height: 15px; border-radius: 16px; background: rgba(255,255,255,0.92);
+  animation: cloud-drift linear infinite;
+}
+.scene-cloud::before, .scene-cloud::after { content: ""; position: absolute; border-radius: 50%; background: inherit; }
+.scene-cloud::before { top: -8px; left: 11px; width: 22px; height: 22px; }
+.scene-cloud::after { top: -5px; left: 28px; width: 16px; height: 16px; }
+.cloud-a { top: 14px; left: 10%; animation-duration: 36s; }
+.cloud-b { top: 40px; left: 44%; transform: scale(0.8); animation-duration: 50s; }
+.cloud-c { top: 22px; left: 70%; transform: scale(0.62); animation-duration: 44s; }
+.scene-dune { position: absolute; left: -6%; right: -6%; bottom: -4px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+.dune-back { height: 44px; background: rgba(225,180,108,0.5); }
+.dune-front { height: 32px; background: rgba(210,150,78,0.7); }
+/* 賽末衝刺：太陽轉烈、賽場邊框脈動，營造緊張收尾。 */
+.field.is-sprint .scene-sun { background: radial-gradient(circle at 50% 45%, #fff, #ff8a3d 58%, #ff5d2e); box-shadow: 0 0 38px rgba(255,90,40,0.72); animation: sun-throb 720ms ease-in-out infinite; }
+.field.is-sprint::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: var(--radius); box-shadow: inset 0 0 0 3px rgba(255,110,50,0.55); animation: sprint-pulse 820ms ease-in-out infinite; }
+/* 倒數暖身：起點群眾舉手歡呼。 */
+.field.is-countdown .crowd-member { animation: crowd-wave 760ms ease-in-out infinite alternate; }
+.field.is-countdown .crowd-member:nth-child(2n) { animation-delay: 180ms; }
+.field.is-countdown .crowd-member:nth-child(3n) { animation-delay: 360ms; }
+
+/* 隊伍識別：賽道名稱前的隊徽。 */
+.lane-emblem { margin-right: 5px; font-size: 15px; }
+
+/* 沙漠→綠洲：澆水比例越高，賽道綠意覆蓋越濃、終點花朵綻放。 */
+.lane-oasis {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: var(--grow, 0);
+  background: radial-gradient(120% 100% at 100% 100%, rgba(80,170,90,0.5), rgba(120,190,100,0.2) 55%, transparent 80%);
+  transition: opacity 600ms ease;
+}
+.lane-flowers {
+  position: absolute; left: 4px; right: 4px; bottom: 2px; z-index: 3;
+  display: flex; justify-content: space-around; font-size: 13px; pointer-events: none;
+  opacity: var(--grow, 0); transform: scale(var(--grow, 0)); transform-origin: bottom center;
+  transition: opacity 500ms ease, transform 500ms ease;
+}
+
+/* 賽末衝刺：接近達標的賽道閃動光環。 */
+.lane.is-near { animation: lane-near 720ms ease-in-out infinite; }
+
+/* 隨機甘霖橫幅：落後隊獲得額外水量時，於賽道上方降下提示。 */
+.lane-boon {
+  position: absolute; top: 6px; left: 50%; z-index: 6; display: flex; align-items: center; gap: 5px;
+  padding: 3px 11px; border-radius: 99px; white-space: nowrap; pointer-events: none;
+  background: rgba(36,110,160,0.94); color: #fff; font-size: 12px; font-weight: 850;
+  box-shadow: 0 4px 12px rgba(20,70,110,0.4);
+  opacity: 0; transform: translate(-50%, -12px); transition: opacity 240ms ease, transform 240ms ease;
+}
+.lane-boon.show { opacity: 1; transform: translate(-50%, 0); }
+.lane-boon b { font-weight: 950; }
+.lane-boon-cloud { font-size: 15px; animation: boon-bob 900ms ease-in-out infinite alternate; }
+
+/* ============================================================
+   玩家端打水手感：水滴飄字 + 連擊徽章
+   ============================================================ */
+.tap-stage { position: relative; justify-self: center; display: grid; justify-items: center; }
+.tap-fx { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: visible; }
+.tap-fx-drop {
+  position: absolute; bottom: 52%; left: 50%; transform: translateX(-50%);
+  font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 2px 6px rgba(15,45,58,0.5);
+  animation: drop-float 700ms ease-out forwards;
+}
+.combo-badge {
+  margin-bottom: 10px; padding: 6px 16px; border-radius: 99px;
+  background: linear-gradient(180deg, #ff9a45, #ff5d2e); color: #fff;
+  font-size: 17px; font-weight: 950; letter-spacing: 0.03em;
+  box-shadow: 0 6px 16px rgba(255,90,40,0.42);
+}
+.combo-badge.bump { animation: combo-bump 260ms cubic-bezier(.2,1.4,.4,1); }
+
+/* ============================================================
+   結算：貢獻榜（MVP）+ 彩帶
+   ============================================================ */
+.winner-card { position: relative; z-index: 1; }
+.winner-mvp { margin-top: 16px; display: grid; gap: 6px; text-align: left; }
+.mvp-title { margin: 0 0 2px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 850; }
+.mvp-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 12px; border-radius: 10px; background: rgba(21,166,182,0.08); font-size: 14px; font-weight: 800; }
+.mvp-row strong { color: var(--aqua-dark); }
+.confetti { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.confetti-piece { position: absolute; top: -14px; width: 9px; height: 14px; border-radius: 2px; opacity: 0.95; animation: confetti-fall linear forwards; }
+
+/* ============================================================
    動畫
    ============================================================ */
 @keyframes ripple { 0% { transform: translate(-50%,-50%) scale(0.7); opacity: 0.7; } 100% { transform: translate(-50%,-50%) scale(1.2); opacity: 0; } }
@@ -411,6 +507,30 @@ body[data-view="player"].is-player-joined .player-view { min-height: 100dvh; pla
   100% { transform: scale(var(--person-scale)) translateY(-2px); filter: brightness(1.08); }
 }
 @keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+/* 天空雲朵橫向飄移 */
+@keyframes cloud-drift { from { transform: translateX(-12px); } to { transform: translateX(16px); } }
+/* 賽末：烈日搏動、賽場邊框脈動 */
+@keyframes sun-throb { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes sprint-pulse { 0%,100% { box-shadow: inset 0 0 0 2px rgba(255,110,50,0.25); } 50% { box-shadow: inset 0 0 0 4px rgba(255,110,50,0.7); } }
+/* 倒數暖身：群眾舉手歡呼 */
+@keyframes crowd-wave { from { transform: translateY(var(--crowd-shift)); } to { transform: translateY(calc(var(--crowd-shift) - 4px)) rotate(-5deg); } }
+/* 接近達標的賽道光環 */
+@keyframes lane-near { 0%,100% { box-shadow: 0 0 0 0 rgba(255,170,40,0); } 50% { box-shadow: 0 0 0 3px rgba(255,170,40,0.5); } }
+/* 甘霖雲朵輕晃 */
+@keyframes boon-bob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+/* 打水水滴往上飄散 */
+@keyframes drop-float {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--drift, 0px)), -60px) scale(1.1); }
+}
+/* 連擊徽章彈跳 */
+@keyframes combo-bump { 0% { transform: scale(0.7); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+/* 結算彩帶落下 */
+@keyframes confetti-fall {
+  0% { transform: translateY(-20px) translateX(0) rotate(0); opacity: 1; }
+  100% { transform: translateY(102vh) translateX(var(--drift, 0)) rotate(var(--spin, 360deg)); opacity: 0.9; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }

@@ -7,10 +7,14 @@ const RELAY_PATH = { start: 13, end: 85 };
 // 倒水動作落在一趟行程中段（f≈0.5）的視窗，讓潑水與小人成長同步發生。
 const POUR_WINDOW = { from: 0.46, to: 0.62 };
 const FINISH_DELAY_MS = 1700; // 達標後停在終點潑水的時間，再進入結算
+const BOON_FIRST_DELAY_MS = 9000;  // 開賽後第一次甘霖的等待時間
+const BOON_INTERVAL_MS = 11000;    // 之後每次甘霖檢查的間隔
+const BOON_BANNER_MS = 3200;       // 甘霖橫幅在賽道上顯示的時間
+const SPRINT_THRESHOLD = 85;       // 任一隊達此進度即進入賽末衝刺氛圍（%）
 const TEAM_META = {
-  coral: { name: "晨露隊", color: "#e76f51", dark: "#b74733" },
-  river: { name: "河浪隊", color: "#277da1", dark: "#15546f" },
-  leaf: { name: "嫩芽隊", color: "#43aa8b", dark: "#20745c" }
+  coral: { name: "晨露隊", color: "#e76f51", dark: "#b74733", emblem: "🌅" },
+  river: { name: "河浪隊", color: "#277da1", dark: "#15546f", emblem: "🌊" },
+  leaf: { name: "嫩芽隊", color: "#43aa8b", dark: "#20745c", emblem: "🌿" }
 };
 const STORAGE_PREFIX = "water-splash-race";
 const query = new URLSearchParams(window.location.search);
@@ -32,6 +36,9 @@ let renderedQrUrl = "";
 let shareFeedback = "";
 let shareFeedbackTimer = null;
 let lastPointerTapAt = 0;
+// 玩家端打水手感狀態（純表現層，不影響計分）
+let comboCount = 0, lastFxTapAt = 0, comboResetTimer = null;
+let confettiRound = 0; // 已灑過彩帶的回合，避免重複觸發
 
 const elements = {
   connectionBadge: document.querySelector("#connection-badge"), roomLabel: document.querySelector("#room-label"),
@@ -45,14 +52,17 @@ const elements = {
   playerName: document.querySelector("#player-name"), joinError: document.querySelector("#join-error"), yourTeamLabel: document.querySelector("#your-team-label"),
   tapHeading: document.querySelector("#tap-heading"), tapCounter: document.querySelector("#tap-counter"), teamProgressFill: document.querySelector("#team-progress-fill"),
   tapMessage: document.querySelector("#tap-message"), tapButton: document.querySelector("#tap-button"), changeTeamButton: document.querySelector("#change-team-button"),
-  winnerOverlay: document.querySelector("#winner-overlay"), winnerTitle: document.querySelector("#winner-title"), winnerCopy: document.querySelector("#winner-copy"), winnerNextButton: document.querySelector("#winner-next-button")
+  tapFx: document.querySelector("#tap-fx"), comboBadge: document.querySelector("#combo-badge"),
+  winnerOverlay: document.querySelector("#winner-overlay"), winnerTitle: document.querySelector("#winner-title"), winnerCopy: document.querySelector("#winner-copy"), winnerNextButton: document.querySelector("#winner-next-button"),
+  winnerMvp: document.querySelector("#winner-mvp"), confetti: document.querySelector("#confetti")
 };
 
 function createDefaultState() {
   return {
-    version: 6, round: 1, status: "lobby", countdownEndsAt: null, startedAt: null, finishedAt: null, finishAnimationEndsAt: null, winner: null,
+    version: 7, round: 1, status: "lobby", countdownEndsAt: null, startedAt: null, finishedAt: null, finishAnimationEndsAt: null, winner: null,
     settings: { bucketCapacity: 24, growthStages: 4, countdownSeconds: 5 },
-    teams: Object.fromEntries(Object.keys(TEAM_META).map((teamId) => [teamId, { waterUnits: 0 }])), players: {}
+    teams: Object.fromEntries(Object.keys(TEAM_META).map((teamId) => [teamId, { waterUnits: 0 }])), players: {},
+    boon: null, nextBoonAt: null // 隨機甘霖：當前橫幅與下次降臨時間
   };
 }
 
@@ -73,14 +83,19 @@ function makeRoomCode() {
 }
 
 function normalizeState(value) {
-  if (!value || ![3, 4, 5, 6].includes(value.version)) return createDefaultState();
+  if (!value || ![3, 4, 5, 6, 7].includes(value.version)) return createDefaultState();
   const base = createDefaultState();
   const source = value;
   const players = Object.fromEntries(Object.entries(source.players || {}).filter(([, player]) => player).map(([id, player]) => [id, {
     name: String(player.name || "隊員").slice(0, 16), team: TEAM_META[player.team] ? player.team : null, taps: clampNumber(player.taps, 0, 0, 1000000), joinedAt: clampNumber(player.joinedAt, 0, 0, Number.MAX_SAFE_INTEGER)
   }]));
+  // 甘霖橫幅：隊伍須有效，數量與時間做上限保護；舊版沒有此欄位時為 null。
+  const boon = source.boon && TEAM_META[source.boon.team] ? {
+    team: source.boon.team, amount: clampNumber(source.boon.amount, 0, 0, 100000), until: clampNumber(source.boon.until, 0, 0, Number.MAX_SAFE_INTEGER)
+  } : null;
   return {
-    ...base, ...source, version: 6, round: clampNumber(source.round, 1, 1, 100000),
+    ...base, ...source, version: 7, round: clampNumber(source.round, 1, 1, 100000),
+    boon, nextBoonAt: clampNumber(source.nextBoonAt, 0, 0, Number.MAX_SAFE_INTEGER) || null,
     status: ["lobby", "countdown", "running", "finishing", "finished"].includes(source.status) ? source.status : "lobby",
     finishAnimationEndsAt: clampNumber(source.finishAnimationEndsAt, 0, 0, Number.MAX_SAFE_INTEGER) || null,
     settings: {
@@ -237,46 +252,59 @@ function tinyPeopleMarkup() {
 // 賽場採「建一次、之後只更新樣式」的策略：跑者與小人是常駐 DOM，
 // 位置只透過 style 變動 + CSS 過渡平滑移動，不會因每 250ms 重繪而中斷搖晃與成長動畫。
 let fieldSignature = "";
+let fieldRef = null;
 const laneRefs = {};
 
 // 賽道骨架：沙地賽道上散落石頭，左取水起點群眾、中間提水跑者、右終點五位小人。
 function laneSkeleton(teamId) {
   const meta = TEAM_META[teamId];
   const people = tinyPeopleMarkup();
-  return `<section class="lane" data-team="${teamId}" style="--team:${meta.color};--team-dark:${meta.dark}" aria-label="${meta.name}由左側取水往右側灌溉">
+  return `<section class="lane" data-team="${teamId}" style="--team:${meta.color};--team-dark:${meta.dark};--grow:0" aria-label="${meta.name}由左側取水往右側灌溉">
     <div class="lane-head">
-      <span class="lane-name">${meta.name}</span>
+      <span class="lane-name"><span class="lane-emblem" aria-hidden="true">${meta.emblem}</span>${meta.name}</span>
       <span class="lane-meta"></span>
       <span class="lane-pct">0%</span>
     </div>
     <div class="lane-track">
       <div class="lane-fill"></div>
+      <div class="lane-oasis" aria-hidden="true"></div>
       ${decorationsMarkup()}
       <div class="zone start-zone"><div class="crowd">${crowdMarkup(teamId)}</div><span class="zone-tag">💧 取水</span></div>
       <div class="runner" aria-hidden="true">${relayRunnerMarkup()}</div>
       <div class="zone finish-zone">
         <div class="watering-rain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="lane-flowers" aria-hidden="true"><span>🌷</span><span>🌻</span><span>🌼</span><span>🌸</span></div>
         <div class="tiny-people">${people}</div>
         <span class="zone-tag">🌱 灌溉</span>
       </div>
+      <div class="lane-boon" aria-hidden="true"><span class="lane-boon-cloud">☔</span><span class="lane-boon-text">甘霖 +<b>0</b></span></div>
     </div>
   </section>`;
 }
 
 function buildFieldSkeleton() {
+  // 賽場天空場景：太陽 + 飄移雲朵 + 遠景沙丘，純裝飾、置於賽道後方營造層次。
+  const scene = `<div class="field-scene" aria-hidden="true">
+    <span class="scene-sun"></span>
+    <span class="scene-cloud cloud-a"></span><span class="scene-cloud cloud-b"></span><span class="scene-cloud cloud-c"></span>
+    <span class="scene-dune dune-back"></span><span class="scene-dune dune-front"></span>
+  </div>`;
   elements.hostScoreboard.innerHTML = `<section class="field" aria-label="三隊同場接力賽場">
+    ${scene}
     <header class="field-head">
       <div><h3>澆水成長賽場</h3></div>
       <span class="field-hint">手指打水時提水人才前進；提到右側倒水讓乾枯小人長大</span>
     </header>
     <div class="lanes">${Object.keys(TEAM_META).map(laneSkeleton).join("")}</div>
   </section>`;
+  fieldRef = elements.hostScoreboard.querySelector(".field");
   Object.keys(TEAM_META).forEach((teamId) => {
     const lane = elements.hostScoreboard.querySelector(`.lane[data-team="${teamId}"]`);
     laneRefs[teamId] = {
-      track: lane.querySelector(".lane-track"), fill: lane.querySelector(".lane-fill"),
+      lane, track: lane.querySelector(".lane-track"), fill: lane.querySelector(".lane-fill"),
       pct: lane.querySelector(".lane-pct"), meta: lane.querySelector(".lane-meta"),
-      runner: lane.querySelector(".runner"), people: [...lane.querySelectorAll(".tiny-person")]
+      runner: lane.querySelector(".runner"), people: [...lane.querySelectorAll(".tiny-person")],
+      boon: lane.querySelector(".lane-boon"), boonAmount: lane.querySelector(".lane-boon-text b")
     };
   });
 }
@@ -287,14 +315,21 @@ function renderField() {
   if (signature !== fieldSignature || !laneRefs.coral) { buildFieldSkeleton(); fieldSignature = signature; }
 
   const active = game.status === "running" || game.status === "finishing";
+  let maxProgress = 0;
+  const boonActive = game.boon && Date.now() < game.boon.until;
   Object.keys(TEAM_META).forEach((teamId) => {
     const m = teamMetrics(teamId);
     const ref = laneRefs[teamId];
     const hasMembers = teamPlayers(teamId).length > 0;
     const pouring = active && m.pouring;
+    maxProgress = Math.max(maxProgress, m.progress);
     ref.fill.style.width = `${m.progress}%`;
     ref.pct.textContent = `${m.progress}%`;
     ref.meta.textContent = `${teamPlayers(teamId).length} 位 · 澆水 ${m.pours} 次`;
+    // 沙漠→綠洲：整條賽道隨澆水比例由枯黃轉綠（CSS 以 --grow 控制綠意覆蓋與花朵）。
+    ref.lane.style.setProperty("--grow", m.growthRatio.toFixed(3));
+    // 賽末衝刺：接近達標的賽道脈動提示。
+    ref.lane.classList.toggle("is-near", active && m.progress >= SPRINT_THRESHOLD);
     // 跑者：位置跟著 waterUnits，CSS 過渡讓它慢慢滑動；倒水時潑水姿態，回程時水桶倒空。
     const returning = active && !m.outbound && !pouring;
     ref.runner.style.left = `${m.posPct}%`;
@@ -302,6 +337,10 @@ function renderField() {
     ref.runner.classList.toggle("is-pour", pouring);
     ref.runner.classList.toggle("is-return", returning);
     ref.track.classList.toggle("is-watering", pouring);
+    // 甘霖橫幅：落後隊獲得額外水量時，於該賽道顯示降雨橫幅。
+    const showBoon = boonActive && game.boon.team === teamId;
+    ref.boon.classList.toggle("show", showBoon);
+    if (showBoon) ref.boonAmount.textContent = String(game.boon.amount);
     // 終點小人：依澆水比例由小變大（CSS 過渡平滑）；倒水時整片小人彈跳（happy-sprinkle）。
     const personScale = (0.24 + m.growthRatio * 0.76).toFixed(3);
     const grown = m.growthRatio >= 1;
@@ -310,6 +349,11 @@ function renderField() {
       p.classList.toggle("is-grown", grown);
     });
   });
+  // 賽場層級氛圍：倒數暖身（群眾揮手）與賽末衝刺（天空變色脈動）。
+  if (fieldRef) {
+    fieldRef.classList.toggle("is-countdown", game.status === "countdown");
+    fieldRef.classList.toggle("is-sprint", game.status === "running" && maxProgress >= SPRINT_THRESHOLD);
+  }
 }
 
 function statusCopy() {
@@ -351,9 +395,46 @@ function render() {
     if (joined) renderPlayerPanel();
   }
 
+  renderWinner();
+}
+
+// 結算遮罩：顯示獲勝隊、隊內打水貢獻榜（MVP），並在切換到結算時灑一次彩帶。
+function renderWinner() {
   const showWinner = game.status === "finished" && game.winner;
   elements.winnerOverlay.hidden = !showWinner;
-  if (showWinner) { elements.winnerTitle.textContent = `${TEAM_META[game.winner].name}獲勝`; elements.winnerCopy.textContent = "最先讓五位小人全部長大。"; elements.winnerNextButton.hidden = !isHost; }
+  if (!showWinner) { confettiRound = 0; return; }
+  const meta = TEAM_META[game.winner];
+  elements.winnerTitle.textContent = `${meta.emblem} ${meta.name}獲勝`;
+  elements.winnerCopy.textContent = "最先讓五位小人全部長大。";
+  elements.winnerNextButton.hidden = !isHost;
+  // 貢獻榜：取獲勝隊打水次數前三名。
+  const top = teamPlayers(game.winner).filter((p) => p.taps > 0).sort((a, b) => b.taps - a.taps).slice(0, 3);
+  const medals = ["🥇", "🥈", "🥉"];
+  elements.winnerMvp.innerHTML = top.length
+    ? `<p class="mvp-title">本隊打水貢獻榜</p>` + top.map((p, i) => `<div class="mvp-row"><span>${medals[i]} ${escapeHtml(p.name)}</span><strong>${p.taps} 次</strong></div>`).join("")
+    : "";
+  // 每個結算回合只灑一次彩帶。
+  if (confettiRound !== game.round) { confettiRound = game.round; spawnConfetti(meta.color); }
+}
+
+// 彩帶：在結算遮罩內生成一批彩色紙花，落下後自動移除。
+function spawnConfetti(teamColor) {
+  if (!elements.confetti) return;
+  elements.confetti.replaceChildren();
+  const colors = [teamColor, "#ffce3a", "#4cc9f0", "#43aa8b", "#ff8fab", "#fff"];
+  const pieces = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 46;
+  for (let i = 0; i < pieces; i++) {
+    const piece = document.createElement("span");
+    piece.className = "confetti-piece";
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.background = colors[i % colors.length];
+    piece.style.animationDelay = `${(Math.random() * 0.6).toFixed(2)}s`;
+    piece.style.animationDuration = `${(1.6 + Math.random() * 1.4).toFixed(2)}s`;
+    piece.style.setProperty("--drift", `${(Math.random() * 120 - 60).toFixed(0)}px`);
+    piece.style.setProperty("--spin", `${Math.round(Math.random() * 720 - 360)}deg`);
+    elements.confetti.append(piece);
+  }
+  window.setTimeout(() => elements.confetti.replaceChildren(), 3600);
 }
 
 function renderPlayerPanel() {
@@ -427,11 +508,51 @@ function sendTapFromPointer(event) {
   if (!event.isPrimary) return;
   lastPointerTapAt = Date.now();
   event.preventDefault();
+  triggerTapFeedback();
   sendTap();
 }
 
 function sendTapFromClick(event) {
-  if (event.detail === 0 || Date.now() - lastPointerTapAt > 500) sendTap();
+  if (event.detail === 0 || Date.now() - lastPointerTapAt > 500) { triggerTapFeedback(); sendTap(); }
+}
+
+// 打水手感（純表現層、不影響計分）：震動回饋 + 水滴飄字 + 連擊計數。
+function triggerTapFeedback() {
+  if (game.status !== "running") return;
+  const now = Date.now();
+  comboCount = now - lastFxTapAt < 650 ? comboCount + 1 : 1; // 連點太慢就斷連擊
+  lastFxTapAt = now;
+  try { navigator.vibrate?.(comboCount >= 10 ? 24 : 12); } catch { /* 不支援震動則略過 */ }
+  spawnTapDrop();
+  updateComboBadge();
+  window.clearTimeout(comboResetTimer);
+  comboResetTimer = window.setTimeout(() => { comboCount = 0; updateComboBadge(); }, 900);
+}
+
+// 在打水按鈕上方冒出「💧+1」往上飄散，短暫後移除。
+function spawnTapDrop() {
+  if (!elements.tapFx) return;
+  const drop = document.createElement("span");
+  drop.className = "tap-fx-drop";
+  drop.textContent = comboCount >= 4 ? "💧+1🔥" : "💧+1";
+  drop.style.left = `${50 + (Math.random() * 36 - 18)}%`;
+  drop.style.setProperty("--drift", `${(Math.random() * 40 - 20).toFixed(0)}px`);
+  elements.tapFx.append(drop);
+  window.setTimeout(() => drop.remove(), 720);
+}
+
+// 連擊 ≥4 時顯示「🔥 連擊 ×N」徽章，斷連時隱藏。
+function updateComboBadge() {
+  if (!elements.comboBadge) return;
+  if (comboCount >= 4) {
+    elements.comboBadge.hidden = false;
+    elements.comboBadge.textContent = `🔥 連擊 ×${comboCount}`;
+    elements.comboBadge.classList.remove("bump");
+    void elements.comboBadge.offsetWidth; // 重觸發彈跳動畫
+    elements.comboBadge.classList.add("bump");
+  } else {
+    elements.comboBadge.hidden = true;
+  }
 }
 
 async function startOrResetRound() {
@@ -446,7 +567,7 @@ async function prepareNextRound() {
 }
 
 function resetRoundState(state) {
-  state.round += 1; state.status = "lobby"; state.countdownEndsAt = null; state.startedAt = null; state.finishedAt = null; state.finishAnimationEndsAt = null; state.winner = null; Object.values(state.teams).forEach((team) => { team.waterUnits = 0; }); Object.values(state.players).forEach((player) => { player.taps = 0; });
+  state.round += 1; state.status = "lobby"; state.countdownEndsAt = null; state.startedAt = null; state.finishedAt = null; state.finishAnimationEndsAt = null; state.winner = null; state.boon = null; state.nextBoonAt = null; Object.values(state.teams).forEach((team) => { team.waterUnits = 0; }); Object.values(state.players).forEach((player) => { player.taps = 0; });
 }
 
 async function autoAssignTeams() {
@@ -476,7 +597,20 @@ function startNextRoundFromResult() {
 
 async function reconcileGameClock() {
   if (!isHost) { render(); return; }
-  if (game.status === "countdown" && Date.now() >= game.countdownEndsAt) await mutateGame((state) => { if (state.status === "countdown" && Date.now() >= state.countdownEndsAt) { state.status = "running"; state.startedAt = Date.now(); } });
+  if (game.status === "countdown" && Date.now() >= game.countdownEndsAt) await mutateGame((state) => { if (state.status === "countdown" && Date.now() >= state.countdownEndsAt) { state.status = "running"; state.startedAt = Date.now(); state.nextBoonAt = Date.now() + BOON_FIRST_DELAY_MS; } });
+  // 隨機甘霖：開賽一段時間後，若有隊伍落後一桶以上，為落後隊降下額外水量，製造逆轉張力。
+  if (game.status === "running" && game.nextBoonAt && Date.now() >= game.nextBoonAt) await mutateGame((state) => {
+    if (state.status !== "running" || !state.nextBoonAt || Date.now() < state.nextBoonAt) return;
+    state.nextBoonAt = Date.now() + BOON_INTERVAL_MS;
+    const active = Object.keys(TEAM_META).filter((teamId) => Object.values(state.players).some((player) => player.team === teamId));
+    if (active.length < 2) return;
+    const sorted = active.slice().sort((left, right) => state.teams[left].waterUnits - state.teams[right].waterUnits);
+    const trailing = sorted[0], leading = sorted[sorted.length - 1];
+    if (state.teams[leading].waterUnits - state.teams[trailing].waterUnits < state.settings.bucketCapacity) return; // 差距未達一桶就不降甘霖
+    const amount = Math.max(1, Math.round(state.settings.bucketCapacity * 0.5));
+    state.teams[trailing].waterUnits += amount;
+    state.boon = { team: trailing, amount, until: Date.now() + BOON_BANNER_MS };
+  });
   if (game.status === "running") {
     const someReady = Object.keys(TEAM_META).some((teamId) => teamMetrics(teamId).pours >= teamMetrics(teamId).maxGrowth);
     if (someReady) await mutateGame((state) => {

@@ -516,29 +516,58 @@ function sendTapFromClick(event) {
   if (event.detail === 0 || Date.now() - lastPointerTapAt > 500) { triggerTapFeedback(); sendTap(); }
 }
 
-// 打水手感（純表現層、不影響計分）：震動回饋 + 水滴飄字 + 連擊計數。
+// 打水手感（純表現層、不影響計分）：震動（僅 Android 有效）+ 強化視覺回饋 + 連擊計數。
+// 註：iPhone/iOS 瀏覽器不支援 navigator.vibrate，故以視覺爆發為主，確保所有手機都有感。
 function triggerTapFeedback() {
   if (game.status !== "running") return;
   const now = Date.now();
   comboCount = now - lastFxTapAt < 650 ? comboCount + 1 : 1; // 連點太慢就斷連擊
   lastFxTapAt = now;
-  try { navigator.vibrate?.(comboCount >= 10 ? 24 : 12); } catch { /* 不支援震動則略過 */ }
-  spawnTapDrop();
+  try { navigator.vibrate?.(comboCount >= 10 ? 24 : 12); } catch { /* iOS 不支援震動，改靠視覺回饋 */ }
+  spawnTapBurst();
+  pulseTapButton();
   updateComboBadge();
   window.clearTimeout(comboResetTimer);
   comboResetTimer = window.setTimeout(() => { comboCount = 0; updateComboBadge(); }, 900);
 }
 
-// 在打水按鈕上方冒出「💧+1」往上飄散，短暫後移除。
-function spawnTapDrop() {
+// 每次打水讓按鈕亮一下（用 filter，不和 :active 的下壓位移衝突；連點也每次重觸發）。
+function pulseTapButton() {
+  if (!elements.tapButton) return;
+  elements.tapButton.classList.remove("tap-pop");
+  void elements.tapButton.offsetWidth; // 重觸發動畫
+  elements.tapButton.classList.add("tap-pop");
+}
+
+// 打水視覺爆發：擴散光環 + 「💧+1」彈跳飄字 + 數顆向外四散的水珠。
+function spawnTapBurst() {
   if (!elements.tapFx) return;
+  const hot = comboCount >= 8;
+  // 擴散光環
+  const ring = document.createElement("span");
+  ring.className = "tap-ring";
+  elements.tapFx.append(ring);
+  window.setTimeout(() => ring.remove(), 520);
+  // 「💧+1」飄字（連擊時加上火焰、放大）
   const drop = document.createElement("span");
-  drop.className = "tap-fx-drop";
+  drop.className = `tap-fx-drop${hot ? " is-hot" : ""}`;
   drop.textContent = comboCount >= 4 ? "💧+1🔥" : "💧+1";
-  drop.style.left = `${50 + (Math.random() * 36 - 18)}%`;
+  drop.style.left = `${50 + (Math.random() * 30 - 15)}%`;
   drop.style.setProperty("--drift", `${(Math.random() * 40 - 20).toFixed(0)}px`);
   elements.tapFx.append(drop);
   window.setTimeout(() => drop.remove(), 720);
+  // 向外四散的水珠
+  const specks = hot ? 6 : 4;
+  for (let i = 0; i < specks; i++) {
+    const speck = document.createElement("span");
+    speck.className = "tap-speck";
+    const angle = (Math.PI * 2 * i) / specks + Math.random() * 0.6;
+    const dist = 44 + Math.random() * 34;
+    speck.style.setProperty("--sx", `${(Math.cos(angle) * dist).toFixed(0)}px`);
+    speck.style.setProperty("--sy", `${(Math.sin(angle) * dist).toFixed(0)}px`);
+    elements.tapFx.append(speck);
+    window.setTimeout(() => speck.remove(), 500);
+  }
 }
 
 // 連擊 ≥4 時顯示「🔥 連擊 ×N」徽章，斷連時隱藏。

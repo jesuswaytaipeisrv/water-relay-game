@@ -363,6 +363,8 @@ body[data-view="host"] .topbar { width: min(100%, 1320px); }
   transform: translateY(9px) scale(0.985);
   box-shadow: inset 0 -8px rgba(0,0,0,0.16), 0 2px 0 var(--active-team-dark, var(--aqua-dark)), 0 8px 14px rgba(15,45,58,0.22);
 }
+/* 每次打水亮一下（用 filter，不與 :active 下壓位移衝突） */
+.tap-button.tap-pop { animation: tap-flash 170ms ease-out; }
 .tap-button-ripple {
   position: absolute; z-index: 0; top: 50%; left: 50%; width: 64%; aspect-ratio: 1;
   border: 5px solid rgba(255,255,255,0.42); border-radius: 50%;
@@ -467,8 +469,22 @@ body[data-view="player"].is-player-joined .player-view { min-height: 100dvh; pla
 .tap-fx { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: visible; }
 .tap-fx-drop {
   position: absolute; bottom: 52%; left: 50%; transform: translateX(-50%);
-  font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 2px 6px rgba(15,45,58,0.5);
+  font-size: 27px; font-weight: 950; color: #fff; white-space: nowrap;
+  text-shadow: 0 2px 8px rgba(15,45,58,0.55), 0 0 14px rgba(120,200,255,0.7);
   animation: drop-float 700ms ease-out forwards;
+}
+.tap-fx-drop.is-hot { font-size: 34px; text-shadow: 0 2px 8px rgba(180,60,20,0.5), 0 0 18px rgba(255,170,60,0.85); }
+/* 打水擴散光環 */
+.tap-ring {
+  position: absolute; top: 50%; left: 50%; width: 42%; aspect-ratio: 1;
+  border: 5px solid rgba(255,255,255,0.75); border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0.4); animation: tap-ring 500ms ease-out forwards;
+}
+/* 打水向外四散的水珠 */
+.tap-speck {
+  position: absolute; top: 50%; left: 50%; width: 10px; height: 12px;
+  border-radius: 60% 40% 60% 40%; background: rgba(255,255,255,0.95);
+  box-shadow: 0 0 7px rgba(120,200,255,0.85); animation: tap-speck 480ms ease-out forwards;
 }
 .combo-badge {
   margin-bottom: 10px; padding: 6px 16px; border-radius: 99px;
@@ -518,12 +534,24 @@ body[data-view="player"].is-player-joined .player-view { min-height: 100dvh; pla
 @keyframes lane-near { 0%,100% { box-shadow: 0 0 0 0 rgba(255,170,40,0); } 50% { box-shadow: 0 0 0 3px rgba(255,170,40,0.5); } }
 /* 甘霖雲朵輕晃 */
 @keyframes boon-bob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
-/* 打水水滴往上飄散 */
+/* 打水水滴往上飄散（先彈跳放大再往上消散，更有「打到」感） */
 @keyframes drop-float {
-  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }
-  25% { opacity: 1; }
-  100% { opacity: 0; transform: translate(calc(-50% + var(--drift, 0px)), -60px) scale(1.1); }
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.5); }
+  20% { opacity: 1; transform: translate(-50%, -6px) scale(1.35); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--drift, 0px)), -72px) scale(1); }
 }
+/* 打水擴散光環 */
+@keyframes tap-ring {
+  0% { opacity: 0.85; transform: translate(-50%, -50%) scale(0.4); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+}
+/* 打水四散水珠：由中心射向隨機方向後淡出 */
+@keyframes tap-speck {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--sx, 0px)), calc(-50% + var(--sy, 0px))) scale(0.4); }
+}
+/* 打水按鈕亮一下 */
+@keyframes tap-flash { 0% { filter: brightness(1.4); } 100% { filter: brightness(1); } }
 /* 連擊徽章彈跳 */
 @keyframes combo-bump { 0% { transform: scale(0.7); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
 /* 結算彩帶落下 */
